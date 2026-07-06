@@ -1,0 +1,839 @@
+{% extends 'base.html' %}
+{% block title %}Create Ticket{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* AI Assistant Styles */
+    .ai-assistant-container {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-radius: var(--radius);
+        padding: 24px;
+        margin-bottom: 30px;
+        color: white;
+        box-shadow: 0 8px 32px rgba(102, 126, 234, 0.3);
+    }
+
+    .ai-assistant-header {
+        display: flex;
+        align-items: center;
+        margin-bottom: 16px;
+        gap: 12px;
+    }
+
+    .ai-assistant-icon {
+        background: rgba(255, 255, 255, 0.2);
+        width: 48px;
+        height: 48px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 20px;
+    }
+
+    .ai-assistant-title {
+        font-size: 1.3rem;
+        font-weight: 700;
+        margin: 0;
+    }
+
+    .ai-assistant-subtitle {
+        opacity: 0.9;
+        font-size: 0.9rem;
+        margin: 0;
+    }
+
+    .ai-prompt-container {
+        background: rgba(255, 255, 255, 0.15);
+        border-radius: var(--radius-sm);
+        padding: 16px;
+        margin-top: 16px;
+    }
+
+    .ai-prompt-input {
+        background: rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        color: white;
+        border-radius: var(--radius-xs);
+        padding: 12px 16px;
+        width: 100%;
+        font-size: 0.9rem;
+        transition: all 0.3s ease;
+    }
+
+    .ai-prompt-input:focus {
+        background: rgba(255, 255, 255, 0.2);
+        border-color: rgba(255, 255, 255, 0.5);
+        outline: none;
+        box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.1);
+    }
+
+    .ai-prompt-input::placeholder {
+        color: rgba(255, 255, 255, 0.7);
+    }
+
+    .ai-action-buttons {
+        display: flex;
+        gap: 10px;
+        margin-top: 12px;
+    }
+
+    .ai-suggestions {
+        margin-top: 20px;
+    }
+
+    .ai-suggestion-title {
+        font-size: 0.85rem;
+        font-weight: 600;
+        margin-bottom: 10px;
+        opacity: 0.9;
+    }
+
+    .ai-suggestion-badges {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+
+    .ai-suggestion-badge {
+        background: rgba(255, 255, 255, 0.15);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        color: white;
+        padding: 6px 14px;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+
+    .ai-suggestion-badge:hover {
+        background: rgba(255, 255, 255, 0.25);
+        transform: translateY(-2px);
+    }
+
+    .ai-response-container {
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: var(--radius-sm);
+        padding: 16px;
+        margin-top: 16px;
+        display: none;
+    }
+
+    .ai-response-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 12px;
+    }
+
+    .ai-response-title {
+        font-weight: 600;
+        font-size: 0.9rem;
+        margin: 0;
+    }
+
+    .ai-response-content {
+        font-size: 0.9rem;
+        line-height: 1.5;
+        opacity: 0.95;
+    }
+
+    /* Enhanced Form Styles */
+    .form-section {
+        background: white;
+        border-radius: var(--radius);
+        padding: 24px;
+        margin-bottom: 24px;
+        box-shadow: var(--shadow);
+    }
+
+    .form-section-header {
+        display: flex;
+        align-items: center;
+        margin-bottom: 20px;
+        padding-bottom: 12px;
+        border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+    }
+
+    .form-section-icon {
+        width: 40px;
+        height: 40px;
+        background: var(--primary-ultra-light);
+        border-radius: var(--radius-sm);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-right: 12px;
+        color: var(--primary);
+    }
+
+    .form-section-title {
+        font-size: 1.1rem;
+        font-weight: 700;
+        margin: 0;
+        color: var(--text-primary);
+    }
+
+    .form-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 20px;
+    }
+
+    .form-group-enhanced {
+        margin-bottom: 20px;
+    }
+
+    .form-label-enhanced {
+        display: block;
+        font-weight: 600;
+        margin-bottom: 8px;
+        color: var(--text-secondary);
+        font-size: 0.9rem;
+    }
+
+    .char-counter {
+        font-size: 0.75rem;
+        color: var(--text-muted);
+        text-align: right;
+        margin-top: 4px;
+    }
+
+    .char-counter.warning {
+        color: var(--warning);
+    }
+
+    .char-counter.danger {
+        color: var(--danger);
+    }
+
+    .attachments-preview {
+        margin-top: 16px;
+        padding: 16px;
+        background: var(--primary-ultra-light);
+        border-radius: var(--radius-sm);
+        border: 1px dashed var(--primary-light);
+    }
+
+    .file-preview {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 10px;
+        background: white;
+        border-radius: var(--radius-xs);
+        margin-bottom: 8px;
+        border: 1px solid rgba(0, 0, 0, 0.05);
+    }
+
+    .file-info {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .file-icon {
+        color: var(--primary);
+    }
+
+    .file-name {
+        font-size: 0.85rem;
+        font-weight: 500;
+    }
+
+    .file-remove {
+        color: var(--danger);
+        cursor: pointer;
+        font-size: 0.9rem;
+    }
+
+    .form-actions {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding-top: 24px;
+        border-top: 1px solid rgba(0, 0, 0, 0.05);
+    }
+
+    .submit-button {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 12px 32px;
+        font-weight: 600;
+        font-size: 0.95rem;
+    }
+
+    .ai-help-tip {
+        background: var(--primary-ultra-light);
+        border-left: 3px solid var(--primary);
+        padding: 12px 16px;
+        margin-top: 16px;
+        border-radius: var(--radius-xs);
+        font-size: 0.85rem;
+        color: var(--text-secondary);
+    }
+
+    .ai-help-tip i {
+        color: var(--primary);
+        margin-right: 8px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-lg-8">
+            <!-- AI Assistant Section -->
+            <div class="ai-assistant-container">
+                <div class="ai-assistant-header">
+                    <div class="ai-assistant-icon">
+                        <i class="fas fa-robot"></i>
+                    </div>
+                    <div>
+                        <h3 class="ai-assistant-title">AI Assistant</h3>
+                        <p class="ai-assistant-subtitle">Get help writing your ticket description with ChatGPT AI</p>
+                    </div>
+                </div>
+                
+                <div class="ai-prompt-container">
+                    <input type="text" class="ai-prompt-input" placeholder="Ask AI for help with your ticket description (e.g., 'How to describe a network issue?', 'Help me write about software bug', etc.)" id="aiPrompt">
+                    
+                    <div class="ai-action-buttons">
+                        <button class="btn btn-light btn-sm" id="aiAskButton">
+                            <i class="fas fa-paper-plane me-1"></i>Ask AI
+                        </button>
+                        <button class="btn btn-outline-light btn-sm" id="aiClearButton">
+                            <i class="fas fa-times me-1"></i>Clear
+                        </button>
+                    </div>
+                    
+                    <div class="ai-suggestions">
+                        <div class="ai-suggestion-title">Common questions:</div>
+                        <div class="ai-suggestion-badges">
+                            <div class="ai-suggestion-badge" data-prompt="How to describe a network connectivity issue?">Network Issue</div>
+                            <div class="ai-suggestion-badge" data-prompt="Help me write about a software bug">Software Bug</div>
+                            <div class="ai-suggestion-badge" data-prompt="How to report a hardware problem?">Hardware Problem</div>
+                            <div class="ai-suggestion-badge" data-prompt="Best way to describe login issues?">Login Issue</div>
+                            <div class="ai-suggestion-badge" data-prompt="How to explain a performance problem?">Performance</div>
+                        </div>
+                    </div>
+                    
+                    <div class="ai-response-container" id="aiResponse">
+                        <div class="ai-response-header">
+                            <div class="ai-response-title">AI Response:</div>
+                            <button class="btn btn-sm btn-outline-light" id="aiUseButton">
+                                <i class="fas fa-check me-1"></i>Use in Ticket
+                            </button>
+                        </div>
+                        <div class="ai-response-content" id="aiResponseContent">
+                            <!-- AI response will appear here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Ticket Form Section -->
+            <div class="form-section">
+                <div class="form-section-header">
+                    <div class="form-section-icon">
+                        <i class="fas fa-ticket-alt"></i>
+                    </div>
+                    <h4 class="form-section-title">Create New Ticket</h4>
+                </div>
+                
+                <form method="post" enctype="multipart/form-data" novalidate id="ticketForm">
+                    {% csrf_token %}
+                    
+                    <div class="form-grid">
+                        {% for field in form %}
+                            <div class="form-group-enhanced">
+                                <label class="form-label-enhanced" for="{{ field.id_for_label }}">
+                                    {{ field.label }}
+                                    {% if field.field.required %}<span class="text-danger">*</span>{% endif %}
+                                </label>
+                                {{ field }}
+                                {% if field.errors %}
+                                    <div class="text-danger small mt-1">{{ field.errors.as_text }}</div>
+                                {% endif %}
+                                {% if field.help_text %}
+                                    <div class="form-text small text-muted mt-1">{{ field.help_text }}</div>
+                                {% endif %}
+                                
+                                <!-- Character counter for description field -->
+                                {% if field.name == 'description' %}
+                                    <div class="char-counter" id="charCounter">0/2000 characters</div>
+                                {% endif %}
+                            </div>
+                        {% endfor %}
+                    </div>
+                    
+                    <!-- Attachments Section -->
+                    <div class="form-section-header mt-4">
+                        <div class="form-section-icon">
+                            <i class="fas fa-paperclip"></i>
+                        </div>
+                        <h4 class="form-section-title">Attachments</h4>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <label class="form-label-enhanced">Add files (optional)</label>
+                        <input type="file" name="attachments" class="form-control" id="attachmentsInput" multiple accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt">
+                        <small class="form-text text-muted">You can attach images, documents, or other files. Maximum file size: 10MB each.</small>
+                        
+                        <div class="attachments-preview" id="attachmentsPreview" style="display: none;">
+                            <div id="filesList"></div>
+                        </div>
+                    </div>
+                    
+                    <!-- AI Help Tip -->
+                    <div class="ai-help-tip">
+                        <i class="fas fa-lightbulb"></i>
+                        <strong>Pro tip:</strong> Use the AI Assistant above to get help writing a clear and detailed description. Good descriptions help agents resolve issues faster.
+                    </div>
+                    
+                    <!-- Form Actions -->
+                    <div class="form-actions">
+                        <div>
+                            <button class="btn btn-primary submit-button" type="submit">
+                                <i class="fas fa-paper-plane me-1"></i>Submit Ticket
+                            </button>
+                            <a href="{% url 'ticket_list' %}" class="btn btn-secondary ms-2">
+                                <i class="fas fa-times me-1"></i>Cancel
+                            </a>
+                        </div>
+                        <div class="text-muted small">
+                            <i class="fas fa-info-circle me-1"></i>All fields marked with * are required
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        <!-- Sidebar with Tips -->
+        <div class="col-lg-4">
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-white fw-semibold">
+                    <i class="fas fa-lightbulb me-2 text-warning"></i>Quick Tips
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <h6 class="fw-semibold"><i class="fas fa-check-circle text-success me-2"></i>Be Specific</h6>
+                        <p class="small text-muted">Include exact error messages, URLs, and steps to reproduce the issue.</p>
+                    </div>
+                    <div class="mb-3">
+                        <h6 class="fw-semibold"><i class="fas fa-check-circle text-success me-2"></i>Add Context</h6>
+                        <p class="small text-muted">Mention when the issue started, frequency, and any recent changes.</p>
+                    </div>
+                    <div class="mb-3">
+                        <h6 class="fw-semibold"><i class="fas fa-check-circle text-success me-2"></i>Set Priority</h6>
+                        <p class="small text-muted">Choose appropriate priority to help us respond in the right timeframe.</p>
+                    </div>
+                    <div class="mb-3">
+                        <h6 class="fw-semibold"><i class="fas fa-check-circle text-success me-2"></i>Use AI Assistant</h6>
+                        <p class="small text-muted">The AI Assistant can help you write clear and professional descriptions.</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card shadow-sm">
+                <div class="card-header bg-white fw-semibold">
+                    <i class="fas fa-question-circle me-2 text-primary"></i>Need More Help?
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <h6 class="fw-semibold">Contact Support</h6>
+                        <p class="small text-muted mb-2">For urgent issues, contact our support team directly:</p>
+                        <ul class="small text-muted ps-3">
+                            <li>Email: support@helpdesk.com</li>
+                            <li>Phone: (123) 456-7890</li>
+                            <li>Hours: Mon-Fri, 9AM-6PM</li>
+                        </ul>
+                    </div>
+                    <div>
+                        <h6 class="fw-semibold">Visit Knowledge Base</h6>
+                        <p class="small text-muted">Browse our knowledge base for solutions to common problems.</p>
+                        <a href="#" class="btn btn-outline-primary btn-sm">
+                            <i class="fas fa-book me-1"></i>Open Knowledge Base
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Character counter for description field
+        const descriptionField = document.querySelector('textarea[name="description"]');
+        const charCounter = document.getElementById('charCounter');
+        
+        if (descriptionField && charCounter) {
+            function updateCharCounter() {
+                const length = descriptionField.value.length;
+                charCounter.textContent = `${length}/2000 characters`;
+                
+                charCounter.classList.remove('warning', 'danger');
+                if (length > 1800 && length <= 2000) {
+                    charCounter.classList.add('warning');
+                } else if (length > 2000) {
+                    charCounter.classList.add('danger');
+                }
+            }
+            
+            descriptionField.addEventListener('input', updateCharCounter);
+            updateCharCounter(); // Initial count
+        }
+        
+        // File attachment preview
+        const attachmentsInput = document.getElementById('attachmentsInput');
+        const attachmentsPreview = document.getElementById('attachmentsPreview');
+        const filesList = document.getElementById('filesList');
+        
+        if (attachmentsInput && attachmentsPreview && filesList) {
+            attachmentsInput.addEventListener('change', function() {
+                const files = this.files;
+                filesList.innerHTML = '';
+                
+                if (files.length > 0) {
+                    attachmentsPreview.style.display = 'block';
+                    
+                    for (let i = 0; i < files.length; i++) {
+                        const file = files[i];
+                        const fileSize = (file.size / 1024 / 1024).toFixed(2); // MB
+                        
+                        const fileItem = document.createElement('div');
+                        fileItem.className = 'file-preview';
+                        fileItem.innerHTML = `
+                            <div class="file-info">
+                                <i class="fas fa-file file-icon"></i>
+                                <div>
+                                    <div class="file-name">${file.name}</div>
+                                    <small class="text-muted">${fileSize} MB</small>
+                                </div>
+                            </div>
+                            <div class="file-remove" data-index="${i}">
+                                <i class="fas fa-times"></i>
+                            </div>
+                        `;
+                        
+                        filesList.appendChild(fileItem);
+                    }
+                    
+                    // Add remove functionality
+                    document.querySelectorAll('.file-remove').forEach(removeBtn => {
+                        removeBtn.addEventListener('click', function() {
+                            const index = parseInt(this.dataset.index);
+                            
+                            // Create new FileList without the removed file
+                            const dt = new DataTransfer();
+                            for (let i = 0; i < files.length; i++) {
+                                if (i !== index) {
+                                    dt.items.add(files[i]);
+                                }
+                            }
+                            
+                            attachmentsInput.files = dt.files;
+                            attachmentsInput.dispatchEvent(new Event('change'));
+                        });
+                    });
+                } else {
+                    attachmentsPreview.style.display = 'none';
+                }
+            });
+        }
+        
+        // AI Assistant functionality
+        const aiPrompt = document.getElementById('aiPrompt');
+        const aiAskButton = document.getElementById('aiAskButton');
+        const aiClearButton = document.getElementById('aiClearButton');
+        const aiResponse = document.getElementById('aiResponse');
+        const aiResponseContent = document.getElementById('aiResponseContent');
+        const aiUseButton = document.getElementById('aiUseButton');
+        const suggestionBadges = document.querySelectorAll('.ai-suggestion-badge');
+        
+        // Sample AI responses for demonstration
+        const aiResponses = {
+            'network': `**Network Connectivity Issue Description:**
+
+**Problem Summary:**
+Unable to connect to the corporate network from my workstation.
+
+**Detailed Description:**
+I'm experiencing intermittent network connectivity issues on my workstation (Computer ID: WS-1234). The problem started this morning around 9:30 AM.
+
+**Symptoms:**
+- Cannot access internal applications (CRM, HR Portal)
+- Intermittent internet connectivity
+- VPN connection drops frequently
+- Unable to ping internal servers
+
+**What I've Tried:**
+1. Restarted the computer
+2. Restarted the network router
+3. Renewed IP configuration (ipconfig /renew)
+4. Connected to different network ports
+
+**Impact:**
+This prevents me from accessing critical work applications and completing daily tasks.
+
+**Priority:**
+High - This is affecting my ability to work effectively.`,
+            
+            'software': `**Software Bug Report:**
+
+**Application:** Sales CRM v2.1.4
+**Module:** Customer Management
+**Issue Type:** Data Validation Bug
+
+**Problem Description:**
+When saving a new customer record with special characters in the company name field, the application throws a validation error even though the characters should be allowed.
+
+**Steps to Reproduce:**
+1. Navigate to Customers → Add New Customer
+2. Enter "Tech Solutions & Services Co." in Company Name
+3. Fill in other required fields
+4. Click Save
+5. Error appears: "Invalid characters in company name"
+
+**Expected Behavior:**
+The system should accept ampersand (&) and other common business name characters.
+
+**Actual Behavior:**
+System rejects valid business names containing ampersands.
+
+**Environment:**
+- Browser: Chrome 128
+- OS: Windows 11
+- User Role: Sales Representative
+
+**Screenshots/Logs:**
+[Attach relevant screenshots or error logs]`,
+            
+            'hardware': `**Hardware Problem Report:**
+
+**Equipment:** Dell Latitude 5420 Laptop
+**Asset Tag:** LT-7890
+**User:** John Smith (jsmith@company.com)
+
+**Issue Description:**
+The laptop battery drains extremely quickly (lasts only 45 minutes on full charge) and the device gets unusually hot during normal use.
+
+**Symptoms:**
+1. Battery life reduced from 8 hours to 45 minutes
+2. Laptop base becomes very hot (especially near vents)
+3. Fan runs at high speed constantly
+4. Performance slowdowns when unplugged
+
+**Timeline:**
+- Issue noticed: 2 days ago
+- Battery was working normally until last week
+
+**Troubleshooting Attempted:**
+1. Updated BIOS and drivers
+2. Ran battery diagnostics (reports battery health at 85%)
+3. Checked power settings
+4. Cleaned ventilation ports
+
+**Work Impact:**
+Unable to work away from desk due to short battery life.`,
+            
+            'login': `**Login Issue Report:**
+
+**System:** Employee Portal
+**Username:** jdoe123
+**Issue:** Unable to login despite correct credentials
+
+**Problem Description:**
+When attempting to login to the employee portal, I receive an "Invalid credentials" error even though I'm certain my password is correct.
+
+**Error Details:**
+- Error message: "Invalid username or password"
+- Time of occurrence: Multiple attempts today between 8:30 AM - 11:00 AM
+- Login page: https://portal.company.com/login
+
+**What I've Tried:**
+1. Verified caps lock is off
+2. Reset password (received reset email but new password also doesn't work)
+3. Tried different browsers (Chrome, Edge)
+4. Cleared browser cache and cookies
+5. Attempted login from different network (home wifi)
+
+**Additional Information:**
+- Last successful login: Yesterday at 4:30 PM
+- Account status appears normal in Active Directory
+- No password expiry notifications received`,
+            
+            'performance': `**Performance Issue Report:**
+
+**Application:** Financial Reporting Dashboard
+**Issue:** Severe performance degradation when loading large reports
+
+**Problem Description:**
+The financial reporting dashboard takes 3-4 minutes to load when accessing reports for Q4 2023. Previously loaded in under 30 seconds.
+
+**Performance Metrics:**
+- Current load time: 180-240 seconds
+- Previous load time: 20-30 seconds
+- CPU usage during load: 95-100%
+- Memory usage: 4GB+ during operation
+
+**When It Occurs:**
+- When loading reports with >50,000 rows
+- During business hours (9 AM - 5 PM)
+- On all user machines (not isolated)
+
+**Workaround:**
+None available - must wait for reports to load
+
+**Impact:**
+Significantly delays monthly reporting process and affects productivity of finance team.`
+        };
+        
+        // AI Assistant functions
+        function getAIResponse(prompt) {
+            // Simple keyword matching for demo
+            const promptLower = prompt.toLowerCase();
+            
+            if (promptLower.includes('network') || promptLower.includes('connectivity')) {
+                return aiResponses.network;
+            } else if (promptLower.includes('software') || promptLower.includes('bug')) {
+                return aiResponses.software;
+            } else if (promptLower.includes('hardware') || promptLower.includes('computer') || promptLower.includes('laptop')) {
+                return aiResponses.hardware;
+            } else if (promptLower.includes('login') || promptLower.includes('password')) {
+                return aiResponses.login;
+            } else if (promptLower.includes('performance') || promptLower.includes('slow')) {
+                return aiResponses.performance;
+            } else {
+                return `**AI Response:**
+
+Based on your question about "${prompt}", here's a template you can use for your ticket:
+
+**Template for Clear Issue Description:**
+
+1. **Problem Summary:** Briefly describe what's not working
+2. **Detailed Description:** Provide specific details about the issue
+3. **Steps to Reproduce:** List the exact steps to recreate the problem
+4. **Expected vs Actual Behavior:** What should happen vs what actually happens
+5. **Environment Details:** Include relevant system/application information
+6. **Impact:** How this affects your work or users
+7. **Troubleshooting Attempted:** What you've already tried to fix it
+
+**Tips for Your Description:**
+- Be specific about error messages and codes
+- Include timestamps when the issue occurs
+- Mention any recent changes that might be related
+- Add screenshots if possible
+
+**Example Structure:**
+"Since [date/time], I've been experiencing [specific issue] when trying to [action]. The error message shows '[exact error text]'. I've tried [solution attempts] but the issue persists. This is affecting [impact on work]."`;
+            }
+        }
+        
+        function showAIResponse(response) {
+            aiResponseContent.innerHTML = response.replace(/\n/g, '<br>').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+            aiResponse.style.display = 'block';
+            aiResponse.style.animation = 'fadeUp 0.35s ease';
+        }
+        
+        // Event listeners for AI Assistant
+        if (aiAskButton && aiPrompt) {
+            aiAskButton.addEventListener('click', function() {
+                const prompt = aiPrompt.value.trim();
+                if (prompt) {
+                    aiAskButton.disabled = true;
+                    aiAskButton.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Thinking...';
+                    
+                    // Simulate AI thinking time
+                    setTimeout(() => {
+                        const response = getAIResponse(prompt);
+                        showAIResponse(response);
+                        
+                        aiAskButton.disabled = false;
+                        aiAskButton.innerHTML = '<i class="fas fa-paper-plane me-1"></i>Ask AI';
+                    }, 1500);
+                } else {
+                    alert('Please enter a question or prompt for the AI assistant.');
+                }
+            });
+        }
+        
+        if (aiClearButton) {
+            aiClearButton.addEventListener('click', function() {
+                aiPrompt.value = '';
+                aiResponse.style.display = 'none';
+            });
+        }
+        
+        if (aiUseButton && descriptionField) {
+            aiUseButton.addEventListener('click', function() {
+                const aiText = aiResponseContent.innerText || aiResponseContent.textContent;
+                if (descriptionField && aiText) {
+                    // Append AI response to description
+                    const currentDesc = descriptionField.value;
+                    const separator = currentDesc ? '\n\n---\n\n' : '';
+                    descriptionField.value = currentDesc + separator + aiText;
+                    
+                    // Update character counter
+                    if (charCounter) {
+                        updateCharCounter();
+                    }
+                    
+                    // Scroll to description field
+                    descriptionField.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    descriptionField.focus();
+                    
+                    // Show success message
+                    const alertDiv = document.createElement('div');
+                    alertDiv.className = 'alert alert-success alert-dismissible fade show mt-3';
+                    alertDiv.innerHTML = `
+                        <i class="fas fa-check-circle me-2"></i>
+                        AI response added to ticket description!
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    `;
+                    
+                    const formActions = document.querySelector('.form-actions');
+                    if (formActions) {
+                        formActions.parentNode.insertBefore(alertDiv, formActions);
+                    }
+                }
+            });
+        }
+        
+        // Suggestion badges
+        suggestionBadges.forEach(badge => {
+            badge.addEventListener('click', function() {
+                const prompt = this.dataset.prompt;
+                aiPrompt.value = prompt;
+                aiPrompt.focus();
+            });
+        });
+        
+        // Form validation enhancement
+        const ticketForm = document.getElementById('ticketForm');
+        if (ticketForm) {
+            ticketForm.addEventListener('submit', function(e) {
+                // Add a loading state to submit button
+                const submitButton = this.querySelector('button[type="submit"]');
+                if (submitButton) {
+                    submitButton.disabled = true;
+                    submitButton.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Submitting...';
+                }
+            });
+        }
+        
+        // Auto-expand textarea as user types
+        if (descriptionField) {
+            descriptionField.addEventListener('input', function() {
+                this.style.height = 'auto';
+                this.style.height = (this.scrollHeight) + 'px';
+            });
+        }
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,856 @@
+from django.shortcuts import render, redirect, get_object_or_404
+from django.contrib.auth.decorators import login_required
+from django.contrib import messages
+from django.core.paginator import Paginator
+from django.db.models import Q, Count, Avg
+from django.utils import timezone
+from django.http import JsonResponse
+
+from .models import Ticket, TicketComment, Attachment, Category, SLA, TicketHistory
+from .forms import (
+    TicketCreateForm, TicketUpdateForm, TicketCommentForm,
+    TicketRatingForm, CategoryForm, SLAForm, TicketSearchForm,
+)
+from .utils import (
+    generate_ticket_id, calculate_sla_deadline,
+    log_ticket_history, get_ticket_status_counts,
+    send_ticket_notification, role_required,
+)
+
+
+# ── Dashboard ─────────────────────────────────────────────────────────────────
+
+@login_required
+def dashboard_view(request):
+    user = request.user
+
+    if user.is_admin:
+        tickets_qs = Ticket.objects.all()
+    elif user.is_agent:
+        tickets_qs = Ticket.objects.filter(
+            Q(assigned_to=user) | Q(status='open')
+        )
+    else:
+        tickets_qs = Ticket.objects.filter(created_by=user)
+
+    stats = get_ticket_status_counts(tickets_qs)
+    recent_tickets = tickets_qs.select_related('created_by', 'assigned_to', 'category')[:10]
+
+    # SLA breach count (deadline passed, not resolved/closed)
+    sla_breached = tickets_qs.filter(
+        sla_deadline__lt=timezone.now(),
+        status__in=['open', 'in_progress']
+    ).count()
+
+    # All users panel (visible to admin/agent)
+    from accounts.models import User as UserModel
+    all_users = UserModel.objects.all().order_by('username') if user.is_admin or user.is_agent else None
+
+    context = {
+        'stats': stats,
+        'recent_tickets': recent_tickets,
+        'sla_breached': sla_breached,
+        'all_users': all_users,
+    }
+    return render(request, 'tickets/dashboard.html', context)
+
+
+# ── Ticket CRUD ───────────────────────────────────────────────────────────────
+
+@login_required
+def ticket_list_view(request):
+    user = request.user
+
+    if user.is_admin:
+        qs = Ticket.objects.all()
+    elif user.is_agent:
+        qs = Ticket.objects.filter(Q(assigned_to=user) | Q(status='open'))
+    else:
+        qs = Ticket.objects.filter(created_by=user)
+
+    qs = qs.select_related('created_by', 'assigned_to', 'category')
+
+    form = TicketSearchForm(request.GET)
+    if form.is_valid():
+        q = form.cleaned_data.get('q')
+        status = form.cleaned_data.get('status')
+        priority = form.cleaned_data.get('priority')
+        category = form.cleaned_data.get('category')
+
+        if q:
+            qs = qs.filter(
+                Q(ticket_id__icontains=q) |
+                Q(title__icontains=q) |
+                Q(description__icontains=q)
+            )
+        if status:
+            qs = qs.filter(status=status)
+        if priority:
+            qs = qs.filter(priority=priority)
+        if category:
+            qs = qs.filter(category=category)
+
+    paginator = Paginator(qs, 15)
+    page_obj = paginator.get_page(request.GET.get('page'))
+
+    return render(request, 'tickets/ticket_list.html', {
+        'page_obj': page_obj,
+        'form': form,
+    })
+
+
+@login_required
+def ticket_create_view(request):
+    if request.method == 'POST':
+        form = TicketCreateForm(request.POST)
+        files = request.FILES.getlist('attachments')
+        if form.is_valid():
+            ticket = form.save(commit=False)
+            ticket.ticket_id = generate_ticket_id()
+            ticket.created_by = request.user
+            ticket.sla_deadline = calculate_sla_deadline(ticket.priority)
+            ticket.save()
+
+            for f in files:
+                Attachment.objects.create(ticket=ticket, file=f, uploaded_by=request.user)
+
+            log_ticket_history(ticket, request.user, 'Created', 'Ticket created.')
+            send_ticket_notification(ticket, 'created')
+            
+            # Send Telegram notification for ticket creation
+            from .notifications import send_change_alert
+            send_change_alert(
+                user=request.user,
+                action='create',
+                object_type='ticket',
+                object_info=f'Ticket #{ticket.ticket_id}: {ticket.title}',
+                details=f'Priority: {ticket.get_priority_display()}, Category: {ticket.category.name if ticket.category else "None"}'
+            )
+            
+            # Add iOS-style notification data to session
+            request.session['ios_notification'] = {
+                'type': 'success',
+                'title': 'Ticket Created',
+                'message': f'Ticket #{ticket.ticket_id} created successfully',
+                'icon': '✅',
+                'auto_hide': True,
+                'duration': 4000
+            }
+            
+            messages.success(request, f'Ticket {ticket.ticket_id} created successfully.')
+            return redirect('ticket_detail', ticket_id=ticket.ticket_id)
+    else:
+        form = TicketCreateForm()
+
+    return render(request, 'tickets/create_ticket.html', {'form': form})
+
+
+@login_required
+def ticket_detail_view(request, ticket_id):
+    ticket = get_object_or_404(Ticket, ticket_id=ticket_id)
+    user = request.user
+
+    # Regular users can only see their own tickets
+    if user.is_regular_user and ticket.created_by != user:
+        messages.error(request, 'You do not have access to this ticket.')
+        return redirect('ticket_list')
+
+    # Filter internal comments for regular users
+    if user.is_regular_user:
+        comments = ticket.comments.filter(is_internal=False)
+    else:
+        comments = ticket.comments.all()
+
+    comment_form = TicketCommentForm(user=user)
+    rating_form = TicketRatingForm(instance=ticket)
+
+    if request.method == 'POST':
+        action = request.POST.get('action')
+
+        if action == 'comment':
+            comment_form = TicketCommentForm(request.POST, user=user)
+            if comment_form.is_valid():
+                comment = comment_form.save(commit=False)
+                comment.ticket = ticket
+                comment.user = user
+                if user.is_regular_user:
+                    comment.is_internal = False
+                comment.save()
+                log_ticket_history(ticket, user, 'Comment Added', comment.content[:100])
+                send_ticket_notification(ticket, 'comment_added')
+                messages.success(request, 'Comment added.')
+                return redirect('ticket_detail', ticket_id=ticket_id)
+
+        elif action == 'rate' and ticket.status in ('resolved', 'closed') and user == ticket.created_by:
+            rating_form = TicketRatingForm(request.POST, instance=ticket)
+            if rating_form.is_valid():
+                rating_form.save()
+                messages.success(request, 'Thank you for your rating!')
+                return redirect('ticket_detail', ticket_id=ticket_id)
+
+    context = {
+        'ticket': ticket,
+        'comments': comments,
+        'attachments': ticket.attachments.all(),
+        'history': ticket.history.all(),
+        'comment_form': comment_form,
+        'rating_form': rating_form,
+    }
+    return render(request, 'tickets/ticket_detail.html', context)
+
+
+@login_required
+def ticket_update_view(request, ticket_id):
+    ticket = get_object_or_404(Ticket, ticket_id=ticket_id)
+    user = request.user
+
+    if user.is_regular_user:
+        messages.error(request, 'Permission denied.')
+        return redirect('ticket_detail', ticket_id=ticket_id)
+
+    old_status = ticket.status
+    old_assigned = ticket.assigned_to
+
+    if request.method == 'POST':
+        form = TicketUpdateForm(request.POST, instance=ticket)
+        if form.is_valid():
+            updated = form.save(commit=False)
+
+            # Set timestamps based on status transitions
+            if updated.status == 'resolved' and old_status != 'resolved':
+                updated.resolved_at = timezone.now()
+            if updated.status == 'closed' and old_status != 'closed':
+                updated.closed_at = timezone.now()
+
+            updated.save()
+
+            # Log changes
+            if old_status != updated.status:
+                log_ticket_history(
+                    ticket, user, 'Status Changed',
+                    f'Status changed from {old_status} to {updated.status}.'
+                )
+                send_ticket_notification(ticket, 'status_changed')
+                
+                # Send Telegram notification for status change
+                from .notifications import send_change_alert
+                send_change_alert(
+                    user=user,
+                    action='update',
+                    object_type='ticket',
+                    object_info=f'Ticket #{ticket.ticket_id}: {ticket.title}',
+                    details=f'Status changed from {old_status} to {updated.status}'
+                )
+
+            if old_assigned != updated.assigned_to:
+                assignee = updated.assigned_to.username if updated.assigned_to else 'Unassigned'
+                log_ticket_history(ticket, user, 'Assigned', f'Ticket assigned to {assignee}.')
+                if updated.assigned_to:
+                    send_ticket_notification(ticket, 'assigned')
+                    
+                # Send Telegram notification for assignment change
+                from .notifications import send_change_alert
+                send_change_alert(
+                    user=user,
+                    action='update',
+                    object_type='ticket',
+                    object_info=f'Ticket #{ticket.ticket_id}: {ticket.title}',
+                    details=f'Assigned to {assignee}'
+                )
+            
+            # Add iOS-style notification data to session
+            request.session['ios_notification'] = {
+                'type': 'success',
+                'title': 'Ticket Updated',
+                'message': f'Ticket #{ticket.ticket_id} updated successfully',
+                'icon': '✅',
+                'auto_hide': True,
+                'duration': 4000
+            }
+
+            messages.success(request, 'Ticket updated.')
+            return redirect('ticket_detail', ticket_id=ticket_id)
+    else:
+        form = TicketUpdateForm(instance=ticket)
+
+    return render(request, 'tickets/update_ticket.html', {'form': form, 'ticket': ticket})
+
+
+@login_required
+@role_required('admin')
+def ticket_delete_view(request, ticket_id):
+    ticket = get_object_or_404(Ticket, ticket_id=ticket_id)
+    if request.method == 'POST':
+        # Send Telegram notification before deletion
+        from .notifications import send_change_alert
+        send_change_alert(
+            user=request.user,
+            action='delete',
+            object_type='ticket',
+            object_info=f'Ticket #{ticket.ticket_id}: {ticket.title}',
+            details=f'Category: {ticket.category.name if ticket.category else "None"}'
+        )
+        
+        ticket.delete()
+        
+        # Add iOS-style notification data to session
+        request.session['ios_notification'] = {
+            'type': 'success',
+            'title': 'Ticket Deleted',
+            'message': f'Ticket #{ticket_id} deleted successfully',
+            'icon': '✅',
+            'auto_hide': True,
+            'duration': 4000
+        }
+        
+        messages.success(request, f'Ticket {ticket_id} deleted.')
+        return redirect('ticket_list')
+    return render(request, 'tickets/ticket_confirm_delete.html', {'ticket': ticket})
+
+
+# ── Category Management (Admin) ───────────────────────────────────────────────
+
+@login_required
+@role_required('admin')
+def category_list_view(request):
+    categories = Category.objects.annotate(ticket_count=Count('tickets')).order_by('name')
+    return render(request, 'tickets/category_list.html', {'categories': categories})
+
+
+@login_required
+@role_required('admin')
+def category_create_view(request):
+    form = CategoryForm(request.POST or None)
+    if form.is_valid():
+        category = form.save()
+        
+        # Send Telegram notification for category creation
+        from .notifications import send_change_alert
+        send_change_alert(
+            user=request.user,
+            action='create',
+            object_type='category',
+            object_info=f'Category: {category.name}',
+            details=f'Description: {category.description[:100] if category.description else "No description"}'
+        )
+        
+        # Add iOS-style notification data to session
+        request.session['ios_notification'] = {
+            'type': 'success',
+            'title': 'Category Created',
+            'message': f'Category "{category.name}" created successfully',
+            'icon': '✅',
+            'auto_hide': True,
+            'duration': 4000
+        }
+        
+        messages.success(request, 'Category created.')
+        return redirect('category_list')
+    return render(request, 'tickets/category_form.html', {'form': form, 'action': 'Create'})
+
+
+@login_required
+@role_required('admin')
+def category_update_view(request, category_id):
+    category = get_object_or_404(Category, pk=category_id)
+    old_name = category.name
+    form = CategoryForm(request.POST or None, instance=category)
+    if form.is_valid():
+        category = form.save()
+        
+        # Send Telegram notification for category update
+        from .notifications import send_change_alert
+        send_change_alert(
+            user=request.user,
+            action='update',
+            object_type='category',
+            object_info=f'Category: {category.name}',
+            details=f'Updated from "{old_name}" to "{category.name}"'
+        )
+        
+        # Add iOS-style notification data to session
+        request.session['ios_notification'] = {
+            'type': 'success',
+            'title': 'Category Updated',
+            'message': f'Category "{category.name}" updated successfully',
+            'icon': '✅',
+            'auto_hide': True,
+            'duration': 4000
+        }
+        
+        messages.success(request, 'Category updated.')
+        return redirect('category_list')
+    return render(request, 'tickets/category_form.html', {'form': form, 'action': 'Update'})
+
+
+@login_required
+@role_required('admin')
+def category_delete_view(request, category_id):
+    category = get_object_or_404(Category, pk=category_id)
+    if request.method == 'POST':
+        # Send Telegram notification for category deletion
+        from .notifications import send_change_alert
+        send_change_alert(
+            user=request.user,
+            action='delete',
+            object_type='category',
+            object_info=f'Category: {category.name}',
+            details=f'Ticket count: {category.tickets.count()}'
+        )
+        
+        category.delete()
+        
+        # Add iOS-style notification data to session
+        request.session['ios_notification'] = {
+            'type': 'success',
+            'title': 'Category Deleted',
+            'message': f'Category "{category.name}" deleted successfully',
+            'icon': '✅',
+            'auto_hide': True,
+            'duration': 4000
+        }
+        
+        messages.success(request, 'Category deleted.')
+        return redirect('category_list')
+    return render(request, 'tickets/category_confirm_delete.html', {'category': category})
+
+
+# ── Reports (Admin) ───────────────────────────────────────────────────────────
+
+@login_required
+@role_required('admin', 'agent')
+def reports_view(request):
+    from accounts.models import User
+    import datetime
+
+    # ── Filters from GET params ──────────────────────────────
+    date_from_str = request.GET.get('date_from', '')
+    date_to_str   = request.GET.get('date_to', '')
+    search_user   = request.GET.get('search_user', '').strip()
+    filter_status = request.GET.get('status', '')
+    filter_priority = request.GET.get('priority', '')
+
+    qs = Ticket.objects.select_related('created_by', 'assigned_to', 'category')
+
+    date_from = date_to = None
+    if date_from_str:
+        try:
+            date_from = datetime.datetime.strptime(date_from_str, '%Y-%m-%d')
+            qs = qs.filter(created_at__gte=date_from)
+        except ValueError:
+            pass
+    if date_to_str:
+        try:
+            date_to = datetime.datetime.strptime(date_to_str, '%Y-%m-%d')
+            qs = qs.filter(created_at__lte=date_to.replace(hour=23, minute=59, second=59))
+        except ValueError:
+            pass
+    if search_user:
+        qs = qs.filter(
+            Q(created_by__username__icontains=search_user) |
+            Q(created_by__first_name__icontains=search_user) |
+            Q(created_by__last_name__icontains=search_user) |
+            Q(assigned_to__username__icontains=search_user)
+        )
+    if filter_status:
+        qs = qs.filter(status=filter_status)
+    if filter_priority:
+        qs = qs.filter(priority=filter_priority)
+
+    total = qs.count()
+    by_status   = {s: qs.filter(status=s).count() for s, _ in Ticket.STATUS_CHOICES}
+    by_priority = {p: qs.filter(priority=p).count() for p, _ in Ticket.PRIORITY_CHOICES}
+    by_category = (
+        Category.objects.annotate(count=Count('tickets')).values('name', 'count').order_by('-count')
+    )
+
+    agents = User.objects.filter(role__in=['agent', 'admin'])
+    agent_stats = []
+    for agent in agents:
+        assigned = qs.filter(assigned_to=agent)
+        agent_stats.append({
+            'agent': agent,
+            'total': assigned.count(),
+            'resolved': assigned.filter(status='resolved').count(),
+            'open': assigned.filter(status='open').count(),
+            'in_progress': assigned.filter(status='in_progress').count(),
+            'closed': assigned.filter(status='closed').count(),
+        })
+
+    # Detailed ticket table (for print / export)
+    ticket_rows = qs.order_by('-created_at')
+
+    # ── Excel export ──────────────────────────────────────────
+    if request.GET.get('export') == 'excel':
+        import io, csv
+        from django.http import HttpResponse
+        response = HttpResponse(content_type='text/csv')
+        fname = f"KML_HelpDesk_Report_{datetime.date.today()}.csv"
+        response['Content-Disposition'] = f'attachment; filename="{fname}"'
+        writer = csv.writer(response)
+        # Company header rows
+        writer.writerow(['KML Software'])
+        writer.writerow(['Help Desk Report'])
+        writer.writerow(['Location: Phnom Penh, Cambodia'])
+        writer.writerow(['Tel: +855 12 345 678  |  Email: support@kmlsoftware.com'])
+        writer.writerow([f'Report Generated: {datetime.datetime.now().strftime("%d %B %Y %H:%M")}'])
+        if date_from_str or date_to_str:
+            writer.writerow([f'Date Range: {date_from_str or "All"} to {date_to_str or "All"}'])
+        writer.writerow([])
+        # Column headers
+        writer.writerow([
+            'Ticket ID', 'Title', 'Category', 'Priority', 'Status',
+            'Created By', 'Assigned To', 'Created Date', 'Resolved Date', 'Rating'
+        ])
+        for t in ticket_rows:
+            writer.writerow([
+                t.ticket_id,
+                t.title,
+                t.category.name if t.category else '—',
+                t.get_priority_display(),
+                t.get_status_display(),
+                t.created_by.get_full_name() or t.created_by.username,
+                t.assigned_to.get_full_name() if t.assigned_to else '—',
+                t.created_at.strftime('%d/%m/%Y %H:%M'),
+                t.resolved_at.strftime('%d/%m/%Y %H:%M') if t.resolved_at else '—',
+                t.rating or '—',
+            ])
+        # Summary footer
+        writer.writerow([])
+        writer.writerow(['── SUMMARY ──'])
+        writer.writerow(['Total Tickets', total])
+        for s, c in by_status.items():
+            writer.writerow([s.replace('_', ' ').title(), c])
+        writer.writerow([])
+        writer.writerow(['© KML Software — Phnom Penh, Cambodia'])
+        return response
+
+    context = {
+        'total': total,
+        'by_status': by_status,
+        'by_priority': by_priority,
+        'by_category': by_category,
+        'agent_stats': agent_stats,
+        'ticket_rows': ticket_rows,
+        # filter state
+        'date_from': date_from_str,
+        'date_to': date_to_str,
+        'search_user': search_user,
+        'filter_status': filter_status,
+        'filter_priority': filter_priority,
+        'status_choices': Ticket.STATUS_CHOICES,
+        'priority_choices': Ticket.PRIORITY_CHOICES,
+        'now': timezone.now(),
+    }
+    return render(request, 'tickets/reports.html', context)
+
+
+@login_required
+@role_required('admin', 'agent')
+def reports_detail_view(request, report_type):
+    context = {'report_type': report_type}
+
+    if report_type == 'status':
+        data = {s: Ticket.objects.filter(status=s).count() for s, _ in Ticket.STATUS_CHOICES}
+        context['data'] = data
+        context['title'] = 'Tickets by Status'
+
+    elif report_type == 'priority':
+        data = {p: Ticket.objects.filter(priority=p).count() for p, _ in Ticket.PRIORITY_CHOICES}
+        context['data'] = data
+        context['title'] = 'Tickets by Priority'
+
+    elif report_type == 'category':
+        data = Category.objects.annotate(count=Count('tickets')).values('name', 'count')
+        context['data'] = data
+        context['title'] = 'Tickets by Category'
+
+    elif report_type == 'sla':
+        breached = Ticket.objects.filter(
+            sla_deadline__lt=timezone.now(), status__in=['open', 'in_progress']
+        )
+        context['breached_tickets'] = breached
+        context['title'] = 'SLA Breached Tickets'
+
+    return render(request, 'tickets/reports_details.html', context)
+
+
+# ── SLA Management (Admin) ────────────────────────────────────────────────────
+
+@login_required
+@role_required('admin')
+def sla_list_view(request):
+    slas = SLA.objects.all().order_by('priority')
+    return render(request, 'tickets/sla_list.html', {'slas': slas})
+
+
+@login_required
+@role_required('admin')
+def sla_form_view(request, pk=None):
+    instance = get_object_or_404(SLA, pk=pk) if pk else None
+    form = SLAForm(request.POST or None, instance=instance)
+    if form.is_valid():
+        form.save()
+        messages.success(request, 'SLA rule saved.')
+        return redirect('sla_list')
+    return render(request, 'tickets/sla_form.html', {'form': form, 'instance': instance})
+
+
+# ── REST API ──────────────────────────────────────────────────────────────────
+
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from rest_framework import status as drf_status
+from .serializers import TicketSerializer, TicketCommentSerializer
+
+
+@api_view(['GET', 'POST'])
+@permission_classes([IsAuthenticated])
+def api_ticket_list(request):
+    user = request.user
+    if request.method == 'GET':
+        if user.is_admin:
+            qs = Ticket.objects.all()
+        elif user.is_agent:
+            qs = Ticket.objects.filter(Q(assigned_to=user) | Q(status='open'))
+        else:
+            qs = Ticket.objects.filter(created_by=user)
+        serializer = TicketSerializer(qs, many=True)
+        return Response(serializer.data)
+
+    if request.method == 'POST':
+        serializer = TicketSerializer(data=request.data)
+        if serializer.is_valid():
+            ticket = serializer.save(
+                created_by=user,
+                ticket_id=generate_ticket_id(),
+                sla_deadline=calculate_sla_deadline(request.data.get('priority', 'medium')),
+            )
+            log_ticket_history(ticket, user, 'Created', 'Ticket created via API.')
+            return Response(TicketSerializer(ticket).data, status=drf_status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=drf_status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['GET', 'PUT', 'DELETE'])
+@permission_classes([IsAuthenticated])
+def api_ticket_detail(request, ticket_id):
+    ticket = get_object_or_404(Ticket, ticket_id=ticket_id)
+    user = request.user
+
+    if request.method == 'GET':
+        return Response(TicketSerializer(ticket).data)
+
+    if request.method == 'PUT':
+        if user.is_regular_user:
+            return Response({'error': 'Permission denied'}, status=drf_status.HTTP_403_FORBIDDEN)
+        serializer = TicketSerializer(ticket, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=drf_status.HTTP_400_BAD_REQUEST)
+
+    if request.method == 'DELETE':
+        if not user.is_admin:
+            return Response({'error': 'Permission denied'}, status=drf_status.HTTP_403_FORBIDDEN)
+        ticket.delete()
+        return Response(status=drf_status.HTTP_204_NO_CONTENT)
+
+
+@api_view(['GET', 'POST'])
+@permission_classes([IsAuthenticated])
+def api_ticket_comments(request, ticket_id):
+    ticket = get_object_or_404(Ticket, ticket_id=ticket_id)
+    user = request.user
+
+    if request.method == 'GET':
+        if user.is_regular_user:
+            comments = ticket.comments.filter(is_internal=False)
+        else:
+            comments = ticket.comments.all()
+        return Response(TicketCommentSerializer(comments, many=True).data)
+
+    if request.method == 'POST':
+        serializer = TicketCommentSerializer(data=request.data)
+        if serializer.is_valid():
+            comment = serializer.save(ticket=ticket, user=user)
+            if user.is_regular_user:
+                comment.is_internal = False
+                comment.save()
+            return Response(TicketCommentSerializer(comment).data, status=drf_status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=drf_status.HTTP_400_BAD_REQUEST)
+# ── AI Chat ──────────────────────────────────────────────────────────────────
+
+@login_required
+def ai_chat_view(request):
+    """AI Q&A chat interface using ChatGPT-like functionality"""
+    
+    # Get user question from POST request
+    user_message = ""
+    ai_response = ""
+    
+    if request.method == 'POST':
+        user_message = request.POST.get('message', '').strip()
+        
+        if user_message:
+            # Simple keyword-based response system (for demo)
+            user_message_lower = user_message.lower()
+            
+            if any(word in user_message_lower for word in ['write', 'description', 'how to describe']):
+                ai_response = """**How to Write a Good Ticket Description:**
+
+1. **Clear Title:** Summarize the issue in one line
+   Example: "Cannot login to CRM system" instead of "Login problem"
+
+2. **Detailed Description:**
+   - What happened? (Specific error messages)
+   - When did it start? (Date and time)
+   - How often does it occur? (Every time, sometimes, etc.)
+   - Steps to reproduce (if applicable)
+
+3. **Environment Details:**
+   - Software/Application name and version
+   - Operating system and version
+   - Browser/Device information
+   - Network location (office, home, etc.)
+
+4. **Impact Assessment:**
+   - How many users are affected?
+   - Is this blocking critical work?
+   - Urgency level
+
+5. **What You've Tried:**
+   - Troubleshooting steps attempted
+   - Any workarounds found
+   - Previous solutions that worked/didn't work
+
+**Example Template:**
+"[Brief summary of issue] started occurring on [date] at [time]. When I try to [action], I see [error message]. This happens [frequency]. I've tried [solution attempts] but the issue persists. This is affecting [number] users and [impact description]."""
+            elif any(word in user_message_lower for word in ['priority', 'urgent', 'important']):
+                ai_response = """**How to Set Ticket Priority:**
+
+**Critical (Response within 1 hour):**
+- System-wide outage affecting all users
+- Security breach or data loss
+- Production system completely down
+- Critical business operations halted
+
+**High (Response within 4 hours):**
+- Multiple users affected
+- Major feature not working
+- Significant performance degradation
+- Important deadline at risk
+
+**Medium (Response within 1 business day):**
+- Single user affected
+- Minor feature issue
+- Non-critical bug
+- General question or request
+
+**Low (Response within 3 business days):**
+- Enhancement requests
+- Cosmetic issues
+- Documentation updates
+- Future improvements"""
+            elif any(word in user_message_lower for word in ['attach', 'file', 'screenshot']):
+                ai_response = """**Best Practices for Attachments:**
+
+**What to Include:**
+1. **Screenshots:** Capture the entire screen, not just the error
+2. **Error Logs:** Copy-paste full error messages
+3. **System Logs:** Event Viewer logs, application logs
+4. **Configuration Files:** Relevant configs (redact sensitive info)
+5. **Network Traces:** For connectivity issues
+
+**Format Guidelines:**
+- Images: PNG or JPG format
+- Logs: TXT format
+- Documents: PDF when possible
+- Maximum file size: 10MB each
+
+**Screenshot Tips:**
+1. Include the URL in the address bar
+2. Show the complete error message
+3. Include any error codes or reference numbers
+4. Use annotation tools to highlight important areas"""
+            elif any(word in user_message_lower for word in ['contact', 'phone', 'email', 'support']):
+                ai_response = """**Contact Information:**
+
+**IT Support Team:**
+- **Phone:** (123) 456-7890 (Mon-Fri, 9AM-6PM)
+- **Email:** support@helpdesk.com
+- **Emergency:** (123) 456-7891 (After hours)
+
+**Department Contacts:**
+- **Network Team:** network@helpdesk.com
+- **Software Team:** software@helpdesk.com
+- **Hardware Team:** hardware@helpdesk.com
+- **Security Team:** security@helpdesk.com
+
+**Response Time SLAs:**
+- Critical: 1 hour
+- High: 4 hours  
+- Medium: 1 business day
+- Low: 3 business days
+
+**Self-Service Options:**
+1. Knowledge Base: https://kb.helpdesk.com
+2. FAQ: https://helpdesk.com/faq
+3. Video Tutorials: https://helpdesk.com/tutorials"""
+            elif any(word in user_message_lower for word in ['help', 'hello', 'hi', 'start']):
+                ai_response = """**Welcome to HelpDesk AI Assistant!**
+
+I'm here to help you with:
+- **Ticket Creation:** Guidance on writing effective tickets
+- **Troubleshooting:** Common IT issue solutions
+- **Best Practices:** HelpDesk usage guidelines
+- **Technical Questions:** General IT queries
+
+**How to use me effectively:**
+1. Be specific about your problem or question
+2. Include relevant details (error messages, software versions, etc.)
+3. Ask one question at a time for clearer responses
+4. Use the suggestion buttons for common queries
+
+**Examples of good questions:**
+- "How do I describe a network connectivity issue?"
+- "What should I include in a software bug report?"
+- "How to set the right priority for my ticket?"
+- "Best way to attach files to a ticket?"""
+            else:
+                ai_response = f"""**AI Response:**
+
+I understand you're asking about: "{user_message}"
+
+Here are some suggestions that might help:
+
+**For ticket-related questions:**
+- Ask "How to write a good ticket description?"
+- Ask "How to set the right priority?"
+- Ask "What files should I attach?"
+
+**For general help:**
+- Ask "How do I contact support?"
+- Ask "What are the response times?"
+- Ask "Where can I find self-help resources?"
+
+**To get the best help:**
+1. Be specific about your issue
+2. Include error messages if available
+3. Mention what you've already tried
+4. Specify the software/system involved
+
+Would you like me to help you with any of these specific topics?"""
+    
+    context = {
+        'user_message': user_message,
+        'ai_response': ai_response,
+    }
+    
+    return render(request, 'tickets/ai_chat.html', context)
+# ── Notification Test ────────────────────────────────────────────────────────
+
+@login_required
+def notification_test_view(request):
+    """Test page for iOS-style notifications"""
+    return render(request, 'tickets/notification_test.html')

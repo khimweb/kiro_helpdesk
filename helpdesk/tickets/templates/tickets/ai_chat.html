@@ -1,0 +1,703 @@
+{% extends 'base.html' %}
+{% block title %}Q&A AI Assistant{% endblock %}
+
+{% block extra_css %}
+<style>
+    .ai-chat-container {
+        max-width: 1200px;
+        margin: 0 auto;
+    }
+
+    .ai-header-section {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-radius: var(--radius);
+        padding: 30px;
+        margin-bottom: 30px;
+        color: white;
+        box-shadow: 0 8px 32px rgba(102, 126, 234, 0.3);
+        text-align: center;
+    }
+
+    .ai-header-icon {
+        width: 70px;
+        height: 70px;
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 28px;
+        margin: 0 auto 20px;
+    }
+
+    .ai-header-title {
+        font-size: 2rem;
+        font-weight: 800;
+        margin-bottom: 10px;
+        letter-spacing: -0.02em;
+    }
+
+    .ai-header-subtitle {
+        font-size: 1.1rem;
+        opacity: 0.9;
+        max-width: 700px;
+        margin: 0 auto;
+        line-height: 1.5;
+    }
+
+    .ai-chat-layout {
+        display: grid;
+        grid-template-columns: 350px 1fr;
+        gap: 24px;
+    }
+
+    @media (max-width: 992px) {
+        .ai-chat-layout {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    /* Left Panel - Categories & Quick Actions */
+    .ai-sidebar {
+        background: white;
+        border-radius: var(--radius);
+        padding: 24px;
+        box-shadow: var(--shadow);
+        height: fit-content;
+        position: sticky;
+        top: 24px;
+    }
+
+    .ai-sidebar-section {
+        margin-bottom: 28px;
+    }
+
+    .ai-sidebar-section:last-child {
+        margin-bottom: 0;
+    }
+
+    .ai-sidebar-title {
+        font-size: 1rem;
+        font-weight: 700;
+        color: var(--text-primary);
+        margin-bottom: 16px;
+        padding-bottom: 8px;
+        border-bottom: 2px solid var(--primary-ultra-light);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .ai-sidebar-title i {
+        color: var(--primary);
+    }
+
+    .ai-quick-actions {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .ai-quick-action {
+        background: var(--primary-ultra-light);
+        border: 1px solid rgba(108, 92, 231, 0.1);
+        border-radius: var(--radius-sm);
+        padding: 14px 16px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        text-align: left;
+        color: var(--text-primary);
+        font-size: 0.9rem;
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+    }
+
+    .ai-quick-action:hover {
+        background: rgba(108, 92, 231, 0.08);
+        border-color: rgba(108, 92, 231, 0.3);
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(108, 92, 231, 0.15);
+    }
+
+    .ai-quick-action i {
+        color: var(--primary);
+        margin-top: 2px;
+        font-size: 16px;
+        min-width: 20px;
+    }
+
+    .ai-category-badges {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+
+    .ai-category-badge {
+        background: white;
+        border: 1px solid var(--primary-light);
+        color: var(--primary);
+        padding: 8px 14px;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+
+    .ai-category-badge:hover {
+        background: var(--primary);
+        color: white;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(108, 92, 231, 0.25);
+    }
+
+    .ai-info-box {
+        background: linear-gradient(135deg, #f0eeff 0%, #e8f4ff 100%);
+        border-radius: var(--radius-sm);
+        padding: 16px;
+        border-left: 4px solid var(--primary);
+    }
+
+    .ai-info-box-title {
+        font-weight: 700;
+        color: var(--text-primary);
+        margin-bottom: 6px;
+        font-size: 0.9rem;
+    }
+
+    .ai-info-box-content {
+        font-size: 0.85rem;
+        color: var(--text-secondary);
+        line-height: 1.5;
+    }
+
+    /* Right Panel - Chat Interface */
+    .ai-chat-main {
+        background: white;
+        border-radius: var(--radius);
+        padding: 30px;
+        box-shadow: var(--shadow);
+        display: flex;
+        flex-direction: column;
+        min-height: 600px;
+    }
+
+    .ai-chat-messages {
+        flex: 1;
+        overflow-y: auto;
+        padding-right: 10px;
+        margin-bottom: 24px;
+        max-height: 500px;
+    }
+
+    .ai-message {
+        margin-bottom: 20px;
+        animation: fadeUp 0.3s ease;
+    }
+
+    .ai-message-user {
+        margin-left: 40px;
+    }
+
+    .ai-message-ai {
+        margin-right: 40px;
+    }
+
+    .ai-message-header {
+        display: flex;
+        align-items: center;
+        margin-bottom: 8px;
+        gap: 10px;
+    }
+
+    .ai-message-avatar {
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 14px;
+        flex-shrink: 0;
+    }
+
+    .ai-message-avatar.user {
+        background: linear-gradient(135deg, #00cec9, #00b894);
+        color: white;
+    }
+
+    .ai-message-avatar.ai {
+        background: linear-gradient(135deg, #667eea, #764ba2);
+        color: white;
+    }
+
+    .ai-message-author {
+        font-weight: 700;
+        font-size: 0.9rem;
+        color: var(--text-primary);
+    }
+
+    .ai-message-time {
+        font-size: 0.75rem;
+        color: var(--text-muted);
+    }
+
+    .ai-message-content {
+        background: var(--primary-ultra-light);
+        border-radius: var(--radius-sm);
+        padding: 18px;
+        font-size: 0.95rem;
+        line-height: 1.6;
+        color: var(--text-primary);
+        border: 1px solid rgba(108, 92, 231, 0.1);
+    }
+
+    .ai-message-user .ai-message-content {
+        background: #f8f9fa;
+        border: 1px solid rgba(0, 0, 0, 0.05);
+    }
+
+    .ai-chat-input-section {
+        border-top: 1px solid rgba(0, 0, 0, 0.05);
+        padding-top: 24px;
+    }
+
+    .ai-chat-form {
+        display: flex;
+        gap: 12px;
+    }
+
+    .ai-chat-input {
+        flex: 1;
+        border-radius: var(--radius-sm);
+        border: 1.5px solid #e0e0e0;
+        padding: 14px 18px;
+        font-size: 0.95rem;
+        transition: all 0.2s ease;
+        min-height: 52px;
+        resize: none;
+    }
+
+    .ai-chat-input:focus {
+        border-color: var(--primary);
+        box-shadow: 0 0 0 4px rgba(108, 92, 231, 0.1);
+        outline: none;
+    }
+
+    .ai-chat-submit {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border: none;
+        border-radius: var(--radius-sm);
+        padding: 0 26px;
+        font-weight: 600;
+        font-size: 0.95rem;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .ai-chat-submit:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+    }
+
+    .ai-chat-submit:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+        transform: none;
+        box-shadow: none;
+    }
+
+    .ai-typing-indicator {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 12px 18px;
+        background: var(--primary-ultra-light);
+        border-radius: var(--radius-sm);
+        margin-bottom: 20px;
+        width: fit-content;
+    }
+
+    .ai-typing-dot {
+        width: 8px;
+        height: 8px;
+        background: var(--primary);
+        border-radius: 50%;
+        animation: typing 1.4s infinite ease-in-out;
+    }
+
+    .ai-typing-dot:nth-child(1) { animation-delay: -0.32s; }
+    .ai-typing-dot:nth-child(2) { animation-delay: -0.16s; }
+
+    @keyframes typing {
+        0%, 80%, 100% { transform: scale(0); }
+        40% { transform: scale(1); }
+    }
+
+    .ai-response-content {
+        font-size: 0.95rem;
+        line-height: 1.7;
+    }
+
+    .ai-response-content strong {
+        color: var(--primary);
+        font-weight: 700;
+    }
+
+    .ai-response-content ul, .ai-response-content ol {
+        padding-left: 20px;
+        margin: 12px 0;
+    }
+
+    .ai-response-content li {
+        margin-bottom: 6px;
+    }
+
+    .ai-empty-state {
+        text-align: center;
+        padding: 60px 20px;
+        color: var(--text-muted);
+    }
+
+    .ai-empty-state-icon {
+        font-size: 48px;
+        color: var(--primary-light);
+        margin-bottom: 20px;
+        opacity: 0.5;
+    }
+
+    .ai-empty-state-title {
+        font-size: 1.2rem;
+        font-weight: 700;
+        margin-bottom: 10px;
+        color: var(--text-primary);
+    }
+
+    .ai-empty-state-text {
+        font-size: 0.95rem;
+        max-width: 500px;
+        margin: 0 auto;
+        line-height: 1.6;
+    }
+
+    /* Markdown-like formatting */
+    .ai-markdown-heading {
+        font-size: 1.1rem;
+        font-weight: 700;
+        color: var(--text-primary);
+        margin: 20px 0 12px 0;
+        padding-bottom: 6px;
+        border-bottom: 2px solid var(--primary-ultra-light);
+    }
+
+    .ai-markdown-heading:first-child {
+        margin-top: 0;
+    }
+
+    .ai-markdown-code {
+        background: #f8f9fa;
+        border: 1px solid #e9ecef;
+        border-radius: 6px;
+        padding: 16px;
+        font-family: 'SF Mono', Menlo, monospace;
+        font-size: 0.85rem;
+        line-height: 1.5;
+        margin: 12px 0;
+        overflow-x: auto;
+    }
+
+    .ai-markdown-blockquote {
+        border-left: 3px solid var(--primary);
+        padding-left: 16px;
+        margin: 16px 0;
+        color: var(--text-secondary);
+        font-style: italic;
+    }
+
+    .ai-copy-button {
+        background: white;
+        border: 1px solid rgba(108, 92, 231, 0.2);
+        color: var(--primary);
+        padding: 6px 12px;
+        border-radius: var(--radius-xs);
+        font-size: 0.8rem;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        margin-top: 10px;
+    }
+
+    .ai-copy-button:hover {
+        background: var(--primary-ultra-light);
+        border-color: var(--primary);
+    }
+
+    .ai-copy-button.copied {
+        background: var(--success);
+        color: white;
+        border-color: var(--success);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="ai-chat-container">
+    <!-- Header Section -->
+    <div class="ai-header-section">
+        <div class="ai-header-icon">
+            <i class="fas fa-robot"></i>
+        </div>
+        <h1 class="ai-header-title">AI Assistant</h1>
+        <p class="ai-header-subtitle">
+            Get instant help with ChatGPT-powered AI. Ask questions about ticket creation, troubleshooting, 
+            best practices, or any IT-related queries. Available 24/7 to assist you.
+        </p>
+    </div>
+
+    <!-- Main Chat Layout -->
+    <div class="ai-chat-layout">
+        <!-- Left Sidebar -->
+        <div class="ai-sidebar">
+            <div class="ai-sidebar-section">
+                <h3 class="ai-sidebar-title">
+                    <i class="fas fa-bolt"></i>Quick Actions
+                </h3>
+                <div class="ai-quick-actions">
+                    <div class="ai-quick-action" data-prompt="How to write a good ticket description?">
+                        <i class="fas fa-pen"></i>
+                        <div>
+                            <strong>Write Ticket Description</strong>
+                            <div class="small text-muted">Best practices for clear descriptions</div>
+                        </div>
+                    </div>
+                    <div class="ai-quick-action" data-prompt="How to set the right priority for my ticket?">
+                        <i class="fas fa-exclamation-circle"></i>
+                        <div>
+                            <strong>Set Ticket Priority</strong>
+                            <div class="small text-muted">Guidelines for priority levels</div>
+                        </div>
+                    </div>
+                    <div class="ai-quick-action" data-prompt="What files should I attach to my ticket?">
+                        <i class="fas fa-paperclip"></i>
+                        <div>
+                            <strong>Attach Files</strong>
+                            <div class="small text-muted">Best practices for attachments</div>
+                        </div>
+                    </div>
+                    <div class="ai-quick-action" data-prompt="How do I contact IT support?">
+                        <i class="fas fa-headset"></i>
+                        <div>
+                            <strong>Contact Support</strong>
+                            <div class="small text-muted">Support channels and response times</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="ai-sidebar-section">
+                <h3 class="ai-sidebar-title">
+                    <i class="fas fa-tags"></i>Popular Categories
+                </h3>
+                <div class="ai-category-badges">
+                    <div class="ai-category-badge" data-prompt="Network connectivity issues">Network</div>
+                    <div class="ai-category-badge" data-prompt="Software bugs and errors">Software</div>
+                    <div class="ai-category-badge" data-prompt="Hardware problems">Hardware</div>
+                    <div class="ai-category-badge" data-prompt="Login and authentication">Login</div>
+                    <div class="ai-category-badge" data-prompt="Performance and speed issues">Performance</div>
+                    <div class="ai-category-badge" data-prompt="Email and communication">Email</div>
+                    <div class="ai-category-badge" data-prompt="Security concerns">Security</div>
+                    <div class="ai-category-badge" data-prompt="Account management">Accounts</div>
+                </div>
+            </div>
+
+            <div class="ai-sidebar-section">
+                <h3 class="ai-sidebar-title">
+                    <i class="fas fa-info-circle"></i>About AI Assistant
+                </h3>
+                <div class="ai-info-box">
+                    <div class="ai-info-box-title">Powered by ChatGPT</div>
+                    <div class="ai-info-box-content">
+                        This AI assistant uses advanced language models to provide helpful, 
+                        accurate responses for your IT queries. Responses are for guidance 
+                        only—for urgent issues, contact support directly.
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Chat Interface -->
+        <div class="ai-chat-main">
+            <div class="ai-chat-messages" id="chatMessages">
+                {% if not user_message %}
+                <!-- Empty State -->
+                <div class="ai-empty-state">
+                    <div class="ai-empty-state-icon">
+                        <i class="fas fa-comments"></i>
+                    </div>
+                    <h3 class="ai-empty-state-title">Start a Conversation</h3>
+                    <p class="ai-empty-state-text">
+                        Ask me anything about ticket creation, IT issues, best practices, 
+                        or use the quick actions on the left for common queries.
+                    </p>
+                </div>
+                {% else %}
+                <!-- User Message -->
+                <div class="ai-message ai-message-user">
+                    <div class="ai-message-header">
+                        <div class="ai-message-avatar user">
+                            <i class="fas fa-user"></i>
+                        </div>
+                        <div class="ai-message-author">You</div>
+                        <div class="ai-message-time">Just now</div>
+                    </div>
+                    <div class="ai-message-content">{{ user_message }}</div>
+                </div>
+
+                <!-- AI Response -->
+                {% if ai_response %}
+                <div class="ai-message ai-message-ai">
+                    <div class="ai-message-header">
+                        <div class="ai-message-avatar ai">
+                            <i class="fas fa-robot"></i>
+                        </div>
+                        <div class="ai-message-author">AI Assistant</div>
+                        <div class="ai-message-time">Just now</div>
+                    </div>
+                    <div class="ai-message-content ai-response-content">
+                        {{ ai_response|linebreaks|safe }}
+                    </div>
+                    <button class="ai-copy-button" onclick="copyAIText()">
+                        <i class="fas fa-copy"></i>Copy Response
+                    </button>
+                </div>
+                {% endif %}
+                {% endif %}
+            </div>
+
+            <!-- Chat Input -->
+            <div class="ai-chat-input-section">
+                <form method="post" class="ai-chat-form" id="chatForm">
+                    {% csrf_token %}
+                    <textarea 
+                        name="message" 
+                        class="ai-chat-input" 
+                        placeholder="Type your question here... (e.g., How to describe a network issue?)" 
+                        rows="2"
+                        required
+                        id="messageInput"
+                    >{% if user_message %}{{ user_message }}{% endif %}</textarea>
+                    <button type="submit" class="ai-chat-submit" id="submitButton">
+                        <i class="fas fa-paper-plane"></i>Send
+                    </button>
+                </form>
+                <div class="small text-muted mt-2">
+                    <i class="fas fa-lightbulb me-1"></i>
+                    Ask about ticket writing, troubleshooting, IT best practices, or general questions.
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const messageInput = document.getElementById('messageInput');
+        const chatForm = document.getElementById('chatForm');
+        const submitButton = document.getElementById('submitButton');
+        const chatMessages = document.getElementById('chatMessages');
+        
+        // Auto-expand textarea
+        if (messageInput) {
+            messageInput.addEventListener('input', function() {
+                this.style.height = 'auto';
+                this.style.height = (this.scrollHeight) + 'px';
+            });
+        }
+        
+        // Quick action buttons
+        document.querySelectorAll('.ai-quick-action, .ai-category-badge').forEach(button => {
+            button.addEventListener('click', function() {
+                const prompt = this.dataset.prompt;
+                if (messageInput) {
+                    messageInput.value = prompt;
+                    messageInput.focus();
+                    messageInput.style.height = 'auto';
+                    messageInput.style.height = (messageInput.scrollHeight) + 'px';
+                }
+            });
+        });
+        
+        // Form submission
+        if (chatForm) {
+            chatForm.addEventListener('submit', function(e) {
+                const message = messageInput.value.trim();
+                if (!message) {
+                    e.preventDefault();
+                    alert('Please enter a message.');
+                    return;
+                }
+                
+                // Show loading state
+                submitButton.disabled = true;
+                submitButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Thinking...';
+                
+                // Show typing indicator
+                const typingIndicator = document.createElement('div');
+                typingIndicator.className = 'ai-typing-indicator';
+                typingIndicator.innerHTML = `
+                    <div class="ai-typing-dot"></div>
+                    <div class="ai-typing-dot"></div>
+                    <div class="ai-typing-dot"></div>
+                    <span style="color: var(--text-muted); font-size: 0.85rem;">AI is thinking...</span>
+                `;
+                
+                const emptyState = document.querySelector('.ai-empty-state');
+                if (emptyState) {
+                    emptyState.remove();
+                }
+                
+                chatMessages.appendChild(typingIndicator);
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+                
+                // Continue with form submission
+                return true;
+            });
+        }
+        
+        // Auto-scroll to bottom of chat
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+        
+        // Focus input on load
+        messageInput.focus();
+    });
+    
+    function copyAIText() {
+        const aiResponse = document.querySelector('.ai-response-content');
+        if (aiResponse) {
+            const text = aiResponse.innerText || aiResponse.textContent;
+            navigator.clipboard.writeText(text).then(() => {
+                const button = document.querySelector('.ai-copy-button');
+                if (button) {
+                    const originalHTML = button.innerHTML;
+                    button.innerHTML = '<i class="fas fa-check"></i>Copied!';
+                    button.classList.add('copied');
+                    
+                    setTimeout(() => {
+                        button.innerHTML = originalHTML;
+                        button.classList.remove('copied');
+                    }, 2000);
+                }
+            });
+        }
+    }
+</script>
+{% endblock %}

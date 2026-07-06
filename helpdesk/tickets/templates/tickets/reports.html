@@ -1,0 +1,429 @@
+{% extends 'base.html' %}
+{% block title %}Reports — KML Software{% endblock %}
+
+{% block extra_css %}
+<style>
+/* ── Screen only ─────────────────────────────────────── */
+.filter-card  { background:#fff; border-radius:16px; padding:20px 24px; box-shadow:var(--shadow); margin-bottom:24px; }
+.stat-mini    { background:#fff; border-radius:14px; padding:18px 20px; box-shadow:var(--shadow); text-align:center; }
+.stat-mini .v { font-size:2rem; font-weight:700; letter-spacing:-.03em; line-height:1; }
+.stat-mini .l { font-size:.7rem; text-transform:uppercase; letter-spacing:.06em; color:var(--text-secondary); margin-top:4px; }
+
+/* ── Print only ──────────────────────────────────────── */
+@media print {
+  /* hide everything except printArea */
+  body > * { display:none !important; }
+  #printArea { display:block !important; }
+
+  #printArea {
+    font-family: 'Segoe UI', Arial, sans-serif;
+    font-size: 11px;
+    color: #111;
+    padding: 24px 32px;
+  }
+
+  /* -- Header -- */
+  .ph {
+    display: flex !important;
+    justify-content: space-between;
+    align-items: flex-start;
+    border-bottom: 3px solid #6C5CE7;
+    padding-bottom: 14px;
+    margin-bottom: 18px;
+  }
+  .ph-logo  { font-size:22px; font-weight:800; color:#6C5CE7; letter-spacing:-.02em; }
+  .ph-sub   { font-size:10px; color:#555; margin-top:3px; line-height:1.6; }
+  .ph-right { text-align:right; }
+  .ph-title { font-size:15px; font-weight:700; }
+  .ph-meta  { font-size:9px; color:#777; margin-top:4px; line-height:1.6; }
+
+  /* -- Summary boxes -- */
+  .ps { display:flex !important; flex-wrap:wrap; gap:10px; margin-bottom:18px; }
+  .ps-box { border:1px solid #ddd; border-radius:8px; padding:10px 16px; text-align:center; min-width:90px; }
+  .ps-box .v { font-size:20px; font-weight:700; color:#6C5CE7; }
+  .ps-box .l { font-size:9px; text-transform:uppercase; color:#888; margin-top:2px; }
+
+  /* -- Tables -- */
+  .pt { width:100%; border-collapse:collapse; margin-bottom:18px; }
+  .pt caption { font-size:11px; font-weight:700; text-align:left; margin-bottom:6px; color:#333; caption-side:top; }
+  .pt th {
+    background:#6C5CE7; color:#fff;
+    padding:6px 9px; font-size:9px;
+    text-transform:uppercase; letter-spacing:.04em;
+    text-align:left;
+  }
+  .pt td { padding:5px 9px; border-bottom:1px solid #eee; font-size:10px; }
+  .pt tr:nth-child(even) td { background:#f8f7ff; }
+
+  /* -- Footer -- */
+  .pf {
+    display:flex !important;
+    justify-content:space-between;
+    border-top:1px solid #ddd;
+    padding-top:10px;
+    margin-top:20px;
+    font-size:9px;
+    color:#888;
+  }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- ══ SCREEN UI ══════════════════════════════════════════ -->
+
+<!-- Page header -->
+<div class="page-header">
+  <div>
+    <h4><i class="fa fa-chart-bar me-2" style="color:var(--primary);"></i>Reports &amp; Analytics</h4>
+    <p style="color:var(--text-secondary);font-size:.85rem;margin-top:3px;">
+      {{ total }} ticket{{ total|pluralize }} in current view
+    </p>
+  </div>
+  <div class="d-flex gap-2">
+    <a href="?export=excel&date_from={{ date_from }}&date_to={{ date_to }}&search_user={{ search_user }}&status={{ filter_status }}&priority={{ filter_priority }}"
+       class="btn btn-sm fw-semibold" style="background:#e8f8f0;color:#00b894;">
+      <i class="fa fa-file-csv me-1"></i>Export Excel
+    </a>
+    <button onclick="window.print()" class="btn btn-sm fw-semibold"
+            style="background:var(--primary-ultra-light);color:var(--primary);">
+      <i class="fa fa-print me-1"></i>Print
+    </button>
+  </div>
+</div>
+
+<!-- Filter bar -->
+<div class="filter-card">
+  <form method="get" class="row g-2 align-items-end">
+    <div class="col-6 col-md-2">
+      <label class="form-label">From Date</label>
+      <input type="date" name="date_from" class="form-control" value="{{ date_from }}">
+    </div>
+    <div class="col-6 col-md-2">
+      <label class="form-label">To Date</label>
+      <input type="date" name="date_to" class="form-control" value="{{ date_to }}">
+    </div>
+    <div class="col-md-3">
+      <label class="form-label">Search User</label>
+      <input type="text" name="search_user" class="form-control"
+             placeholder="Name or username…" value="{{ search_user }}">
+    </div>
+    <div class="col-md-2">
+      <label class="form-label">Status</label>
+      <select name="status" class="form-select">
+        <option value="">All Statuses</option>
+        {% for val, label in status_choices %}
+          <option value="{{ val }}" {% if filter_status == val %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-md-2">
+      <label class="form-label">Priority</label>
+      <select name="priority" class="form-select">
+        <option value="">All Priorities</option>
+        {% for val, label in priority_choices %}
+          <option value="{{ val }}" {% if filter_priority == val %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-md-1 d-flex gap-1">
+      <button class="btn btn-primary flex-fill" type="submit" title="Apply filters">
+        <i class="fa fa-filter"></i>
+      </button>
+      <a href="{% url 'reports' %}" class="btn" style="background:#f0f0f0;" title="Clear">
+        <i class="fa fa-times"></i>
+      </a>
+    </div>
+  </form>
+  {% if date_from or date_to or search_user or filter_status or filter_priority %}
+  <p class="mb-0 mt-2" style="font-size:.8rem;color:var(--primary);">
+    <i class="fa fa-circle-info me-1"></i>
+    Filters active — showing {{ total }} ticket{{ total|pluralize }}.
+  </p>
+  {% endif %}
+</div>
+
+<!-- Stat mini cards -->
+<div class="row g-3 mb-4">
+  <div class="col-6 col-xl">
+    <div class="stat-mini">
+      <div class="v" style="color:var(--primary);">{{ total }}</div>
+      <div class="l">Total</div>
+    </div>
+  </div>
+  {% for s, c in by_status.items %}
+  <div class="col-6 col-xl">
+    <div class="stat-mini">
+      <div class="v
+        {% if s == 'open' %}style="color:#0984e3;"
+        {% elif s == 'in_progress' %}style="color:#e67e22;"
+        {% elif s == 'resolved' %}style="color:#00b894;"
+        {% else %}style="color:#636e72;"{% endif %}">{{ c }}</div>
+      <div class="l">{{ s|title }}</div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<!-- Charts row -->
+<div class="row g-3 mb-4">
+  <!-- By Status -->
+  <div class="col-md-4">
+    <div class="card h-100">
+      <div class="card-header">By Status</div>
+      <div class="card-body">
+        {% if total > 0 %}
+          {% for s, c in by_status.items %}
+          <div class="mb-3">
+            <div class="d-flex justify-content-between mb-1">
+              <span class="badge status-{{ s }}">{{ s|title }}</span>
+              <strong>{{ c }}</strong>
+            </div>
+            <div style="height:7px;border-radius:4px;background:#f0eeff;overflow:hidden;">
+              <div style="height:100%;width:{% widthratio c total 100 %}%;background:var(--primary);border-radius:4px;transition:width 1s ease;"></div>
+            </div>
+          </div>
+          {% endfor %}
+        {% else %}
+          <p class="text-center py-3" style="color:var(--text-muted);">No data</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  <!-- By Priority -->
+  <div class="col-md-4">
+    <div class="card h-100">
+      <div class="card-header">By Priority</div>
+      <div class="card-body">
+        {% if total > 0 %}
+          {% for p, c in by_priority.items %}
+          <div class="mb-3">
+            <div class="d-flex justify-content-between mb-1">
+              <span class="badge priority-{{ p }}">{{ p|title }}</span>
+              <strong>{{ c }}</strong>
+            </div>
+            <div style="height:7px;border-radius:4px;background:#fff8e1;overflow:hidden;">
+              <div style="height:100%;width:{% widthratio c total 100 %}%;background:#fdcb6e;border-radius:4px;transition:width 1s ease;"></div>
+            </div>
+          </div>
+          {% endfor %}
+        {% else %}
+          <p class="text-center py-3" style="color:var(--text-muted);">No data</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  <!-- By Category -->
+  <div class="col-md-4">
+    <div class="card h-100">
+      <div class="card-header">By Category</div>
+      <div class="card-body">
+        {% for cat in by_category %}
+        <div class="d-flex justify-content-between align-items-center mb-2 pb-2"
+             style="border-bottom:1px solid rgba(0,0,0,0.04);">
+          <span style="font-size:.88rem;">{{ cat.name }}</span>
+          <span class="badge" style="background:var(--primary-ultra-light);color:var(--primary);">{{ cat.count }}</span>
+        </div>
+        {% empty %}
+          <p class="text-center py-3" style="color:var(--text-muted);">No data</p>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Agent Performance -->
+<div class="card mb-4">
+  <div class="card-header">
+    <i class="fa fa-user-tie me-2" style="color:var(--primary);"></i>Agent Performance
+  </div>
+  <div class="card-body p-0">
+    <table class="table mb-0">
+      <thead>
+        <tr>
+          <th>Agent</th><th>Email</th><th>Department</th>
+          <th>Total</th><th>Open</th><th>In Progress</th><th>Resolved</th><th>Closed</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for stat in agent_stats %}
+        <tr>
+          <td>
+            <div class="fw-semibold" style="font-size:.88rem;">
+              {{ stat.agent.get_full_name|default:stat.agent.username }}
+            </div>
+            <div style="font-size:.75rem;color:var(--text-secondary);">@{{ stat.agent.username }}</div>
+          </td>
+          <td style="font-size:.82rem;">{{ stat.agent.email|default:"—" }}</td>
+          <td style="font-size:.82rem;">{{ stat.agent.department|default:"—" }}</td>
+          <td><strong>{{ stat.total }}</strong></td>
+          <td><span class="badge status-open">{{ stat.open }}</span></td>
+          <td><span class="badge status-in_progress">{{ stat.in_progress }}</span></td>
+          <td><span class="badge status-resolved">{{ stat.resolved }}</span></td>
+          <td><span class="badge status-closed">{{ stat.closed }}</span></td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="8" class="text-center py-4" style="color:var(--text-muted);">No agents found.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Ticket Details Table -->
+<div class="card mb-4">
+  <div class="card-header">
+    <i class="fa fa-list me-2" style="color:var(--primary);"></i>
+    Ticket Details
+    <span class="badge ms-1" style="background:var(--primary-ultra-light);color:var(--primary);">{{ total }}</span>
+  </div>
+  <div class="card-body p-0" style="overflow-x:auto;">
+    <table class="table mb-0">
+      <thead>
+        <tr>
+          <th>Ticket ID</th><th>Title</th><th>Category</th><th>Priority</th>
+          <th>Status</th><th>Created By</th><th>Assigned To</th>
+          <th>Created</th><th>Resolved</th><th>Rating</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for t in ticket_rows %}
+        <tr>
+          <td><code>{{ t.ticket_id }}</code></td>
+          <td style="font-size:.83rem;max-width:180px;">{{ t.title|truncatechars:42 }}</td>
+          <td style="font-size:.82rem;">{{ t.category.name|default:"—" }}</td>
+          <td><span class="badge priority-{{ t.priority }}">{{ t.get_priority_display }}</span></td>
+          <td><span class="badge status-{{ t.status }}">{{ t.get_status_display }}</span></td>
+          <td style="font-size:.82rem;">{{ t.created_by.get_full_name|default:t.created_by.username }}</td>
+          <td style="font-size:.82rem;">
+            {% if t.assigned_to %}{{ t.assigned_to.get_full_name|default:t.assigned_to.username }}{% else %}—{% endif %}
+          </td>
+          <td style="font-size:.78rem;white-space:nowrap;">{{ t.created_at|date:"d/m/Y H:i" }}</td>
+          <td style="font-size:.78rem;white-space:nowrap;">{{ t.resolved_at|date:"d/m/Y H:i"|default:"—" }}</td>
+          <td style="text-align:center;">
+            {% if t.rating %}
+              {% for i in "12345" %}
+                <i class="fa fa-star" style="font-size:.65rem;color:{% if forloop.counter <= t.rating %}#fdcb6e{% else %}#ddd{% endif %};"></i>
+              {% endfor %}
+            {% else %}—{% endif %}
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="10" class="text-center py-5" style="color:var(--text-muted);">
+            <i class="fa fa-search fa-2x mb-2 d-block"></i>No tickets match the selected filters.
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+
+<!-- ══ PRINT AREA (hidden on screen, visible only when printing) ══ -->
+<div id="printArea" style="display:none;">
+
+  <!-- Header -->
+  <div class="ph">
+    <div>
+      <div class="ph-logo">KML Software</div>
+      <div class="ph-sub">
+        Help Desk &amp; Support Ticket System<br>
+        Phnom Penh, Cambodia &nbsp;|&nbsp; Tel: +855 12 345 678 &nbsp;|&nbsp; support@kmlsoftware.com
+      </div>
+    </div>
+    <div class="ph-right">
+      <div class="ph-title">Help Desk Report</div>
+      <div class="ph-meta">
+        Generated: {% now "d F Y, H:i" %}<br>
+        {% if date_from or date_to %}Period: {{ date_from|default:"All" }} → {{ date_to|default:"All" }}<br>{% endif %}
+        {% if search_user %}User: {{ search_user }}<br>{% endif %}
+        Prepared by: {{ request.user.get_full_name|default:request.user.username }} ({{ request.user.get_role_display }})
+      </div>
+    </div>
+  </div>
+
+  <!-- Summary boxes -->
+  <div class="ps">
+    <div class="ps-box"><div class="v">{{ total }}</div><div class="l">Total</div></div>
+    {% for s, c in by_status.items %}
+    <div class="ps-box"><div class="v">{{ c }}</div><div class="l">{{ s|title }}</div></div>
+    {% endfor %}
+    {% for p, c in by_priority.items %}
+    <div class="ps-box"><div class="v">{{ c }}</div><div class="l">{{ p|title }}</div></div>
+    {% endfor %}
+  </div>
+
+  <!-- Agent table -->
+  <table class="pt">
+    <caption>Agent Performance</caption>
+    <thead>
+      <tr>
+        <th>Agent</th><th>Email</th><th>Department</th>
+        <th>Total</th><th>Open</th><th>In Progress</th><th>Resolved</th><th>Closed</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for stat in agent_stats %}
+      <tr>
+        <td>{{ stat.agent.get_full_name|default:stat.agent.username }}</td>
+        <td>{{ stat.agent.email|default:"—" }}</td>
+        <td>{{ stat.agent.department|default:"—" }}</td>
+        <td>{{ stat.total }}</td>
+        <td>{{ stat.open }}</td>
+        <td>{{ stat.in_progress }}</td>
+        <td>{{ stat.resolved }}</td>
+        <td>{{ stat.closed }}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="8">No agent data.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <!-- Ticket detail table -->
+  <table class="pt">
+    <caption>Ticket Details ({{ total }} ticket{{ total|pluralize }})</caption>
+    <thead>
+      <tr>
+        <th>Ticket ID</th><th>Title</th><th>Category</th><th>Priority</th>
+        <th>Status</th><th>Created By</th><th>Assigned To</th>
+        <th>Created</th><th>Resolved</th><th>Rating</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for t in ticket_rows %}
+      <tr>
+        <td>{{ t.ticket_id }}</td>
+        <td>{{ t.title|truncatechars:50 }}</td>
+        <td>{{ t.category.name|default:"—" }}</td>
+        <td>{{ t.get_priority_display }}</td>
+        <td>{{ t.get_status_display }}</td>
+        <td>{{ t.created_by.get_full_name|default:t.created_by.username }}</td>
+        <td>{% if t.assigned_to %}{{ t.assigned_to.get_full_name|default:t.assigned_to.username }}{% else %}—{% endif %}</td>
+        <td>{{ t.created_at|date:"d/m/Y H:i" }}</td>
+        <td>{{ t.resolved_at|date:"d/m/Y H:i"|default:"—" }}</td>
+        <td>{% if t.rating %}{{ t.rating }}/5{% else %}—{% endif %}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="10">No tickets.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <!-- Footer -->
+  <div class="pf">
+    <div>
+      <strong>KML Software</strong> · Help Desk Support System<br>
+      Phnom Penh, Cambodia · Tel: +855 12 345 678 · support@kmlsoftware.com
+    </div>
+    <div style="text-align:right;">
+      © {% now "Y" %} KML Software. All rights reserved.
+    </div>
+  </div>
+
+</div><!-- /printArea -->
+
+{% endblock %}

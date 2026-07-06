@@ -1,0 +1,46 @@
+{% extends 'base.html' %}
+{% block title %}My Profile{% endblock %}
+{% block content %}
+<div class="row">
+  <div class="col-lg-4 mb-4">
+    <div class="card text-center shadow-sm">
+      <div class="card-body py-4">
+        {% if user.profile_picture %}
+          <img src="{{ user.profile_picture.url }}" class="rounded-circle mb-3" width="100" height="100" alt="avatar">
+        {% else %}
+          <i class="fa fa-user-circle fa-5x text-secondary mb-3"></i>
+        {% endif %}
+        <h5 class="fw-bold">{{ user.get_full_name|default:user.username }}</h5>
+        <span class="badge bg-primary">{{ user.get_role_display }}</span>
+        {% if user.department %}
+          <p class="text-muted small mt-2">{{ user.department }}</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-8">
+    <div class="card shadow-sm">
+      <div class="card-header bg-white fw-semibold">
+        <i class="fa fa-edit me-2 text-primary"></i>Edit Profile
+      </div>
+      <div class="card-body">
+        <form method="post" enctype="multipart/form-data" novalidate>
+          {% csrf_token %}
+          {% for field in form %}
+            <div class="mb-3">
+              <label class="form-label fw-semibold">{{ field.label }}</label>
+              {{ field }}
+              {% if field.errors %}
+                <div class="text-danger small">{{ field.errors.as_text }}</div>
+              {% endif %}
+            </div>
+          {% endfor %}
+          <button class="btn btn-primary" type="submit">
+            <i class="fa fa-save me-1"></i>Save Changes
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

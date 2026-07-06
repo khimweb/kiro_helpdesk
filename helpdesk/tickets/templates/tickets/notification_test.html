@@ -1,0 +1,159 @@
+{% extends 'base.html' %}
+{% block title %}Notification Test{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card shadow-sm">
+                <div class="card-header bg-white fw-semibold">
+                    <i class="fa fa-bell me-2 text-primary"></i>iOS Notification Test
+                </div>
+                <div class="card-body">
+                    <p class="text-muted mb-4">
+                        Test the iOS-style notifications that appear for 4 seconds. These notifications
+                        will also trigger Telegram bot alerts.
+                    </p>
+                    
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <div class="card border-0 bg-light">
+                                <div class="card-body">
+                                    <h5 class="card-title">Test Notifications</h5>
+                                    <p class="card-text small text-muted">
+                                        Click buttons below to test different notification types.
+                                    </p>
+                                    
+                                    <div class="d-flex flex-wrap gap-2 mt-3">
+                                        <button class="btn btn-success" onclick="testSuccess()">
+                                            <i class="fa fa-check me-1"></i>Success
+                                        </button>
+                                        <button class="btn btn-danger" onclick="testError()">
+                                            <i class="fa fa-times me-1"></i>Error
+                                        </button>
+                                        <button class="btn btn-primary" onclick="testInfo()">
+                                            <i class="fa fa-info me-1"></i>Info
+                                        </button>
+                                        <button class="btn btn-warning" onclick="testWarning()">
+                                            <i class="fa fa-exclamation me-1"></i>Warning
+                                        </button>
+                                        <button class="btn btn-purple" onclick="testChange()">
+                                            <i class="fa fa-sync me-1"></i>Change
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <div class="card border-0 bg-light">
+                                <div class="card-body">
+                                    <h5 class="card-title">Telegram Bots</h5>
+                                    <p class="card-text small text-muted">
+                                        Notifications are sent to these Telegram bots:
+                                    </p>
+                                    
+                                    <div class="list-group list-group-flush">
+                                        <div class="list-group-item border-0 bg-transparent px-0">
+                                            <i class="fa fa-robot text-primary me-2"></i>
+                                            <strong>@changeeverthingalert_bot</strong>
+                                            <div class="small text-muted">For changes, edits, deletes</div>
+                                        </div>
+                                        <div class="list-group-item border-0 bg-transparent px-0">
+                                            <i class="fa fa-robot text-success me-2"></i>
+                                            <strong>@Allnewsofsystem_bot</strong>
+                                            <div class="small text-muted">For system information</div>
+                                        </div>
+                                        <div class="list-group-item border-0 bg-transparent px-0">
+                                            <i class="fa fa-robot text-info me-2"></i>
+                                            <strong>@loginorsignininformation_bot</strong>
+                                            <div class="small text-muted">For login/signup alerts</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-4">
+                        <h5>Notification Features:</h5>
+                        <ul class="list-unstyled">
+                            <li class="mb-2"><i class="fa fa-check text-success me-2"></i>Smooth iOS 26 style animations</li>
+                            <li class="mb-2"><i class="fa fa-check text-success me-2"></i>Auto-hide after 4 seconds</li>
+                            <li class="mb-2"><i class="fa fa-check text-success me-2"></i>Click to close manually</li>
+                            <li class="mb-2"><i class="fa fa-check text-success me-2"></i>Dark mode support</li>
+                            <li class="mb-2"><i class="fa fa-check text-success me-2"></i>Responsive design</li>
+                            <li class="mb-2"><i class="fa fa-check text-success me-2"></i>Telegram bot integration</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="alert alert-info mt-4">
+                        <i class="fa fa-info-circle me-2"></i>
+                        <strong>Note:</strong> Real actions (creating tickets, updating profiles, etc.) 
+                        will automatically trigger these notifications and send alerts to Telegram bots.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function testSuccess() {
+        window.IOSNotifications.success(
+            'Operation Successful',
+            'The task was completed successfully. All changes have been saved.',
+            4000
+        );
+    }
+    
+    function testError() {
+        window.IOSNotifications.error(
+            'Operation Failed',
+            'An error occurred while processing your request. Please try again.',
+            4000
+        );
+    }
+    
+    function testInfo() {
+        window.IOSNotifications.info(
+            'Information',
+            'Your profile has been updated. Changes will take effect immediately.',
+            4000
+        );
+    }
+    
+    function testWarning() {
+        window.IOSNotifications.warning(
+            'Warning',
+            'This action cannot be undone. Please confirm before proceeding.',
+            4000
+        );
+    }
+    
+    function testChange() {
+        window.IOSNotifications.change(
+            'Change Detected',
+            'User settings have been modified. The system has been updated.',
+            4000
+        );
+    }
+    
+    // Add custom CSS for purple button
+    const style = document.createElement('style');
+    style.textContent = `
+        .btn-purple {
+            background-color: #9C27B0;
+            color: white;
+            border-color: #9C27B0;
+        }
+        .btn-purple:hover {
+            background-color: #7B1FA2;
+            border-color: #7B1FA2;
+        }
+    `;
+    document.head.appendChild(style);
+</script>
+{% endblock %}

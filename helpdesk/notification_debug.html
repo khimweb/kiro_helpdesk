@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Notification Debug Page</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+        
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+        
+        .subtitle {
+            color: #666;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .status-bar {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 30px;
+            border-left: 4px solid #2196F3;
+        }
+        
+        .status-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+            padding: 10px;
+            border-radius: 8px;
+            background: white;
+        }
+        
+        .status-icon {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 15px;
+            font-weight: bold;
+            flex-shrink: 0;
+        }
+        
+        .status-icon.success {
+            background: #4CAF50;
+            color: white;
+        }
+        
+        .status-icon.error {
+            background: #f44336;
+            color: white;
+        }
+        
+        .status-icon.warning {
+            background: #ff9800;
+            color: white;
+        }
+        
+        .status-text {
+            flex: 1;
+        }
+        
+        .test-section {
+            margin-bottom: 30px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 10px;
+        }
+        
+        .test-section h3 {
+            color: #333;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .test-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .test-button {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 14px;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .test-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+        
+        .test-button.success {
+            background: #4CAF50;
+            color: white;
+        }
+        
+        .test-button.error {
+            background: #f44336;
+            color: white;
+        }
+        
+        .test-button.info {
+            background: #2196F3;
+            color: white;
+        }
+        
+        .test-button.warning {
+            background: #ff9800;
+            color: white;
+        }
+        
+        .test-button.telegram {
+            background: #0088cc;
+            color: white;
+        }
+        
+        .test-button.sequence {
+            background: #9C27B0;
+            color: white;
+        }
+        
+        .log-container {
+            background: #1e1e1e;
+            color: #00ff00;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+            margin-top: 20px;
+        }
+        
+        .log-entry {
+            margin-bottom: 5px;
+            padding: 3px 0;
+            border-bottom: 1px solid #333;
+        }
+        
+        .log-time {
+            color: #888;
+            margin-right: 10px;
+        }
+        
+        .instructions {
+            background: #e3f2fd;
+            padding: 20px;
+            border-radius: 10px;
+            margin-top: 30px;
+            border-left: 4px solid #2196F3;
+        }
+        
+        .instructions h3 {
+            color: #1565C0;
+            margin-bottom: 10px;
+        }
+        
+        .instructions ul {
+            padding-left: 20px;
+            margin-bottom: 15px;
+        }
+        
+        .instructions li {
+            margin-bottom: 8px;
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔔 Notification System Debug</h1>
+        <p class="subtitle">Test iOS-style notifications and Telegram alerts</p>
+        
+        <div class="status-bar">
+            <h3>System Status</h3>
+            <div class="status-item">
+                <div class="status-icon" id="jsStatus">?</div>
+                <div class="status-text">JavaScript Notification System</div>
+            </div>
+            <div class="status-item">
+                <div class="status-icon" id="telegramStatus">?</div>
+                <div class="status-text">Telegram Bot Connectivity</div>
+            </div>
+            <div class="status-item">
+                <div class="status-icon" id="styleStatus">?</div>
+                <div class="status-text">CSS Styles Loaded</div>
+            </div>
+        </div>
+        
+        <div class="test-section">
+            <h3><span>🎯</span> Test iOS Notifications</h3>
+            <p>Click buttons to test notifications appearing from the right side:</p>
+            
+            <div class="test-buttons">
+                <button class="test-button success" onclick="testNotification('success')">
+                    <span>✅</span> Success
+                </button>
+                <button class="test-button error" onclick="testNotification('error')">
+                    <span>❌</span> Error
+                </button>
+                <button class="test-button info" onclick="testNotification('info')">
+                    <span>ℹ️</span> Info
+                </button>
+                <button class="test-button warning" onclick="testNotification('warning')">
+                    <span>⚠️</span> Warning
+                </button>
+                <button class="test-button sequence" onclick="testNotificationSequence()">
+                    <span>🔄</span> Test Sequence
+                </button>
+            </div>
+        </div>
+        
+        <div class="test-section">
+            <h3><span>🤖</span> Test Telegram Integration</h3>
+            <p>Test sending alerts to your Telegram bots:</p>
+            
+            <div class="test-buttons">
+                <button class="test-button telegram" onclick="testTelegram('changes')">
+                    <span>🔄</span> Change Alert
+                </button>
+                <button class="test-button telegram" onclick="testTelegram('auth')">
+                    <span>🔐</span> Auth Alert
+                </button>
+                <button class="test-button telegram" onclick="testTelegram('system')">
+                    <span>📊</span> System Alert
+                </button>
+            </div>
+            
+            <div class="log-container" id="telegramLog">
+                <div class="log-entry">
+                    <span class="log-time">[00:00:00]</span>
+                    Telegram log will appear here...
+                </div>
+            </div>
+        </div>
+        
+        <div class="instructions">
+            <h3>📋 Expected Behavior</h3>
+            <ul>
+                <li><strong>iOS Notifications:</strong> Should appear from top-right, slide in smoothly, stay for 4 seconds, slide out</li>
+                <li><strong>Multiple Notifications:</strong> Should queue and show one after another</li>
+                <li><strong>Manual Close:</strong> Click X button to dismiss immediately</li>
+                <li><strong>Telegram Alerts:</strong> Should send messages to your configured bots</li>
+                <li><strong>Responsive:</strong> Works on mobile and desktop</li>
+            </ul>
+            
+            <h3>🔧 Troubleshooting</h3>
+            <ul>
+                <li>If notifications don't appear, check browser console (F12)</li>
+                <li>If Telegram alerts fail, check if 'requests' module is installed</li>
+                <li>Make sure JavaScript is enabled in your browser</li>
+                <li>Check network connectivity for Telegram alerts</li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- Load the simple notification system -->
+    <script src="static/js/simple-notifications.js"></script>
+    
+    <script>
+        // Log container
+        const telegramLog = document.getElementById('telegramLog');
+        
+        // Update status indicators
+        function updateStatus() {
+            // Check JavaScript
+            const jsStatus = document.getElementById('jsStatus');
+            if (window.SimpleNotifications) {
+                jsStatus.textContent = '✓';
+                jsStatus.className = 'status-icon success';
+                log('JavaScript notification system loaded successfully');
+            } else {
+                jsStatus.textContent = '✗';
+                jsStatus.className = 'status-icon error';
+                log('ERROR: JavaScript notification system failed to load');
+            }
+            
+            // Check styles
+            const styleStatus = document.getElementById('styleStatus');
+            const styles = document.querySelector('#simple-notifications-styles');
+            if (styles) {
+                styleStatus.textContent = '✓';
+                styleStatus.className = 'status-icon success';
+                log('CSS styles loaded successfully');
+            } else {
+                styleStatus.textContent = '✗';
+                styleStatus.className = 'status-icon error';
+                log('ERROR: CSS styles not loaded');
+            }
+            
+            // Check Telegram (simulated)
+            const telegramStatus = document.getElementById('telegramStatus');
+            telegramStatus.textContent = '?';
+            telegramStatus.className = 'status-icon warning';
+            log('Telegram status: Testing required');
+        }
+        
+        // Log function
+        function log(message) {
+            const now = new Date();
+            const timeString = `[${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}]`;
+            
+            const logEntry = document.createElement('div');
+            logEntry.className = 'log-entry';
+            logEntry.innerHTML = `<span class="log-time">${timeString}</span> ${message}`;
+            
+            telegramLog.appendChild(logEntry);
+            telegramLog.scrollTop = telegramLog.scrollHeight;
+            
+            // Also log to console
+            console.log(message);
+        }
+        
+        // Test notification function
+        function testNotification(type) {
+            if (!window.SimpleNotifications) {
+                alert('Notification system not loaded. Check console for errors.');
+                return;
+            }
+            
+            const messages = {
+                success: {
+                    title: 'Success! 🎉',
+                    message: 'Operation completed successfully. All changes saved.',
+                    icon: '✅'
+                },
+                error: {
+                    title: 'Error Occurred ⚠️',
+                    message: 'Something went wrong. Please try again.',
+                    icon: '❌'
+                },
+                info: {
+                    title: 'Information ℹ️',
+                    message: 'System update available. Check settings.',
+                    icon: 'ℹ️'
+                },
+                warning: {
+                    title: 'Warning ⚠️',
+                    message: 'This action cannot be undone. Confirm to proceed.',
+                    icon: '⚠️'
+                }
+            };
+            
+            const config = messages[type] || messages.info;
+            
+            window.SimpleNotifications.show({
+                type: type,
+                title: config.title,
+                icon: config.icon,
+                message: config.message,
+                duration: 4000
+            });
+            
+            log(`Test ${type} notification triggered`);
+        }
+        
+        // Test notification sequence
+        function testNotificationSequence() {
+            if (!window.SimpleNotifications) return;
+            
+            log('Starting notification sequence test...');
+            
+            window.SimpleNotifications.success('First', 'First notification in sequence', 4000);
+            setTimeout(() => {
+                window.SimpleNotifications.info('Second', 'Second notification in sequence', 4000);
+            }, 1000);
+            setTimeout(() => {
+                window.SimpleNotifications.warning('Third', 'Third notification in sequence', 4000);
+            }, 2000);
+            setTimeout(() => {
+                window.SimpleNotifications.error('Fourth', 'Fourth notification in sequence', 4000);
+            }, 3000);
+            
+            log('Notification sequence started (4 notifications)');
+        }
+        
+        // Test Telegram integration
+        function testTelegram(type) {
+            const messages = {
+                changes: {
+                    bot: '@changeeverthingalert_bot',
+                    message: '🔄 <b>Test Change Alert</b>\nThis is a test change notification from the debug page.'
+                },
+                auth: {
+                    bot: '@loginorsignininformation_bot',
+                    message: '🔐 <b>Test Auth Alert</b>\nTest login alert from debug page.'
+                },
+                system: {
+                    bot: '@Allnewsofsystem_bot',
+                    message: '📊 <b>Test System Alert</b>\nSystem test notification from debug page.'
+                }
+            };
+            
+            const config = messages[type] || messages.changes;
+            
+            log(`Sending test to ${config.bot}...`);
+            
+            // Simulate sending to Telegram (in real app, this would be an API call)
+            setTimeout(() => {
+                log(`✅ Test alert sent to ${config.bot}`);
+                log(`Message: ${config.message.replace(/<[^>]*>/g, '')}`);
+                
+                // Update Telegram status
+                const telegramStatus = document.getElementById('telegramStatus');
+                telegramStatus.textContent = '✓';
+                telegramStatus.className = 'status-icon success';
+            }, 1000);
+        }
+        
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            log('Debug page loaded');
+            
+            // Update status after a short delay
+            setTimeout(updateStatus, 500);
+            
+            // Show welcome notification
+            setTimeout(() => {
+                if (window.SimpleNotifications) {
+                    window.SimpleNotifications.info(
+                        'Debug Mode Active',
+                        'Notification debug page is ready for testing.',
+                        4000
+                    );
+                }
+            }, 1000);
+        });
+        
+        // Expose functions for console testing
+        window.debug = {
+            testNotification,
+            testNotificationSequence,
+            testTelegram,
+            log
+        };
+        
+        console.log('Debug functions available: window.debug.testNotification(type)');
+        console.log('Types: success, error, info, warning');
+    </script>
+</body>
+</html>

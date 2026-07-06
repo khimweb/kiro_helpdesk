@@ -1,0 +1,178 @@
+{% extends 'base.html' %}
+{% block title %}{{ ticket.ticket_id }}{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h4 class="fw-bold">
+    <i class="fa fa-ticket-alt me-2 text-primary"></i>
+    <code>{{ ticket.ticket_id }}</code>
+  </h4>
+  <div class="d-flex gap-2">
+    {% if request.user.role in 'admin,agent' %}
+    <a href="{% url 'ticket_update' ticket.ticket_id %}" class="btn btn-warning btn-sm">
+      <i class="fa fa-edit me-1"></i>Update
+    </a>
+    {% endif %}
+    {% if request.user.role == 'admin' %}
+    <a href="{% url 'ticket_delete' ticket.ticket_id %}" class="btn btn-danger btn-sm">
+      <i class="fa fa-trash me-1"></i>Delete
+    </a>
+    {% endif %}
+    <a href="{% url 'ticket_list' %}" class="btn btn-secondary btn-sm">Back</a>
+  </div>
+</div>
+
+<div class="row g-4">
+  <!-- Left: Ticket details -->
+  <div class="col-lg-8">
+    <div class="card shadow-sm mb-4">
+      <div class="card-body">
+        <h5 class="fw-bold">{{ ticket.title }}</h5>
+        <p class="text-muted">{{ ticket.description }}</p>
+
+        <!-- Attachments -->
+        {% if attachments %}
+        <div class="mt-3">
+          <h6 class="fw-semibold"><i class="fa fa-paperclip me-1"></i>Attachments</h6>
+          <ul class="list-unstyled">
+            {% for att in attachments %}
+            <li>
+              <a href="{{ att.file.url }}" target="_blank">
+                <i class="fa fa-file me-1"></i>{{ att.filename }}
+              </a>
+              <small class="text-muted ms-2">by {{ att.uploaded_by.username }}</small>
+            </li>
+            {% endfor %}
+          </ul>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Comments -->
+    <div class="card shadow-sm mb-4">
+      <div class="card-header bg-white fw-semibold">
+        <i class="fa fa-comments me-2 text-primary"></i>Comments
+      </div>
+      <div class="card-body">
+        {% for comment in comments %}
+        <div class="mb-3 {% if comment.is_internal %}bg-warning-subtle border-start border-warning border-3 p-2 rounded{% endif %}">
+          <div class="d-flex justify-content-between">
+            <strong>{{ comment.user.username }}</strong>
+            <small class="text-muted">{{ comment.created_at|date:"M d, Y H:i" }}</small>
+          </div>
+          {% if comment.is_internal %}
+            <span class="badge bg-warning text-dark small mb-1">Internal Note</span>
+          {% endif %}
+          <p class="mb-0 mt-1">{{ comment.content }}</p>
+        </div>
+        {% empty %}
+          <p class="text-muted">No comments yet.</p>
+        {% endfor %}
+
+        <!-- Add comment form -->
+        <hr>
+        <h6 class="fw-semibold">Add Comment</h6>
+        <form method="post">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="comment">
+          <div class="mb-2">{{ comment_form.content }}</div>
+          {% if comment_form.is_internal %}
+          <div class="form-check mb-2">
+            {{ comment_form.is_internal }}
+            <label class="form-check-label" for="{{ comment_form.is_internal.id_for_label }}">
+              Internal note (not visible to user)
+            </label>
+          </div>
+          {% endif %}
+          <button class="btn btn-primary btn-sm" type="submit">
+            <i class="fa fa-paper-plane me-1"></i>Submit
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <!-- Rating (for resolved/closed tickets, ticket owner only) -->
+    {% if ticket.status in 'resolved,closed' and request.user == ticket.created_by %}
+    <div class="card shadow-sm">
+      <div class="card-header bg-white fw-semibold">
+        <i class="fa fa-star me-2 text-warning"></i>Rate this Resolution
+      </div>
+      <div class="card-body">
+        {% if ticket.rating %}
+          <p>You rated this: <strong>{{ ticket.rating }}/5</strong></p>
+          <p class="text-muted">{{ ticket.rating_comment }}</p>
+        {% else %}
+        <form method="post">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="rate">
+          <div class="mb-2">
+            <label class="form-label fw-semibold">Rating</label>
+            {{ rating_form.rating }}
+          </div>
+          <div class="mb-2">
+            <label class="form-label fw-semibold">Comment (optional)</label>
+            {{ rating_form.rating_comment }}
+          </div>
+          <button class="btn btn-warning btn-sm" type="submit">
+            <i class="fa fa-star me-1"></i>Submit Rating
+          </button>
+        </form>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Right: Meta info & history -->
+  <div class="col-lg-4">
+    <div class="card shadow-sm mb-4">
+      <div class="card-header bg-white fw-semibold">Ticket Info</div>
+      <div class="card-body">
+        <table class="table table-sm table-borderless mb-0">
+          <tr><th>Status</th><td><span class="badge status-{{ ticket.status }}">{{ ticket.get_status_display }}</span></td></tr>
+          <tr><th>Priority</th><td><span class="badge priority-{{ ticket.priority }}">{{ ticket.get_priority_display }}</span></td></tr>
+          <tr><th>Category</th><td>{{ ticket.category.name|default:"—" }}</td></tr>
+          <tr><th>Created by</th><td>{{ ticket.created_by.username }}</td></tr>
+          <tr><th>Assigned to</th><td>{{ ticket.assigned_to.username|default:"Unassigned" }}</td></tr>
+          <tr><th>Created</th><td>{{ ticket.created_at|date:"M d, Y H:i" }}</td></tr>
+          <tr><th>Updated</th><td>{{ ticket.updated_at|date:"M d, Y H:i" }}</td></tr>
+          {% if ticket.sla_deadline %}
+          <tr>
+            <th>SLA Deadline</th>
+            <td class="{% if ticket.sla_deadline < now %}text-danger fw-bold{% endif %}">
+              {{ ticket.sla_deadline|date:"M d, Y H:i" }}
+            </td>
+          </tr>
+          {% endif %}
+          {% if ticket.resolved_at %}
+          <tr><th>Resolved</th><td>{{ ticket.resolved_at|date:"M d, Y H:i" }}</td></tr>
+          {% endif %}
+        </table>
+      </div>
+    </div>
+
+    <!-- Activity history -->
+    <div class="card shadow-sm">
+      <div class="card-header bg-white fw-semibold">
+        <i class="fa fa-history me-2 text-primary"></i>Activity
+      </div>
+      <div class="card-body p-0">
+        <ul class="list-group list-group-flush">
+          {% for h in history %}
+          <li class="list-group-item py-2">
+            <div class="d-flex justify-content-between">
+              <span class="fw-semibold small">{{ h.action }}</span>
+              <small class="text-muted">{{ h.created_at|date:"M d H:i" }}</small>
+            </div>
+            <small class="text-muted">{{ h.description|truncatechars:80 }}</small>
+            <br><small class="text-muted">by {{ h.user.username }}</small>
+          </li>
+          {% empty %}
+          <li class="list-group-item text-muted py-3 text-center">No history.</li>
+          {% endfor %}
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,36 @@
+{% extends 'base.html' %}
+{% block title %}Register — HelpDesk{% endblock %}
+{% block unauth_content %}
+<div class="min-vh-100 d-flex align-items-center justify-content-center bg-light">
+  <div class="card shadow" style="width: 460px;">
+    <div class="card-body p-5">
+      <div class="text-center mb-4">
+        <i class="fa fa-headset fa-3x text-primary"></i>
+        <h3 class="mt-2 fw-bold">Create Account</h3>
+        <p class="text-muted">Join HelpDesk to submit support requests</p>
+      </div>
+      <form method="post" novalidate>
+        {% csrf_token %}
+        {% for field in form %}
+          <div class="mb-3">
+            <label class="form-label fw-semibold">{{ field.label }}</label>
+            {{ field }}
+            {% if field.errors %}
+              <div class="text-danger small">{{ field.errors.as_text }}</div>
+            {% endif %}
+          </div>
+        {% endfor %}
+        <div class="d-grid mt-4">
+          <button class="btn btn-success btn-lg" type="submit">
+            <i class="fa fa-user-plus me-2"></i>Register
+          </button>
+        </div>
+      </form>
+      <hr>
+      <p class="text-center mb-0 text-muted">
+        Already have an account? <a href="{% url 'login' %}">Login</a>
+      </p>
+    </div>
+  </div>
+</div>
+{% endblock %}

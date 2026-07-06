@@ -1,0 +1,37 @@
+[
+  {
+    "model": "tickets.category",
+    "pk": 1,
+    "fields": { "name": "Technical Support", "description": "Hardware, software, and network issues", "created_at": "2024-01-01T00:00:00Z" }
+  },
+  {
+    "model": "tickets.category",
+    "pk": 2,
+    "fields": { "name": "Billing", "description": "Invoice, payment, and subscription questions", "created_at": "2024-01-01T00:00:00Z" }
+  },
+  {
+    "model": "tickets.category",
+    "pk": 3,
+    "fields": { "name": "General Inquiry", "description": "General questions and information", "created_at": "2024-01-01T00:00:00Z" }
+  },
+  {
+    "model": "tickets.sla",
+    "pk": 1,
+    "fields": { "priority": "low", "response_time_hours": 48, "resolution_time_hours": 120, "is_active": true }
+  },
+  {
+    "model": "tickets.sla",
+    "pk": 2,
+    "fields": { "priority": "medium", "response_time_hours": 24, "resolution_time_hours": 72, "is_active": true }
+  },
+  {
+    "model": "tickets.sla",
+    "pk": 3,
+    "fields": { "priority": "high", "response_time_hours": 8, "resolution_time_hours": 24, "is_active": true }
+  },
+  {
+    "model": "tickets.sla",
+    "pk": 4,
+    "fields": { "priority": "critical", "response_time_hours": 2, "resolution_time_hours": 8, "is_active": true }
+  }
+]
