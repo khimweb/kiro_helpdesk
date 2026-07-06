@@ -16,7 +16,10 @@ REQUIRED_PACKAGES = {
     'django-crispy-forms': '2.1',
     'crispy-bootstrap5': '0.7',
     'django-filter': '23.3',
-    'requests': '2.31.0'
+    'requests': '2.31.0',
+    'python-dotenv': '1.0.0',
+    'gunicorn': '21.2.0',
+    'psycopg2-binary': '2.9.9'
 }
 
 def check_package(package_name, required_version):

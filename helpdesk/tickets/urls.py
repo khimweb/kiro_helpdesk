@@ -1,7 +1,11 @@
 from django.urls import path
 from . import views
+from .health import HealthCheckView
 
 urlpatterns = [
+    # Health check
+    path('health/', HealthCheckView.as_view(), name='health_check'),
+    
     # Dashboard
     path('dashboard/', views.dashboard_view, name='dashboard'),
     path('', views.dashboard_view, name='home'),
