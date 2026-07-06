@@ -19,19 +19,20 @@ def register_view(request):
         if form.is_valid():
             user = form.save()
             login(request, user)
-            
-            # Send Telegram notification for successful registration
-            from tickets.notifications import send_auth_alert
-            ip_address = request.META.get('REMOTE_ADDR', 'Unknown')
-            send_auth_alert(
-                username=user.username,
-                action='signup',
-                success=True,
-                ip_address=ip_address,
-                details=f'Email: {user.email}, Role: {user.get_role_display()}'
-            )
-            
-            # Add iOS-style notification data to session
+
+            try:
+                from tickets.notifications import send_auth_alert
+                ip_address = request.META.get('REMOTE_ADDR', 'Unknown')
+                send_auth_alert(
+                    username=user.username,
+                    action='signup',
+                    success=True,
+                    ip_address=ip_address,
+                    details=f'Email: {user.email}, Role: {user.get_role_display()}'
+                )
+            except Exception:
+                pass
+
             request.session['ios_notification'] = {
                 'type': 'success',
                 'title': 'Registration Successful',
@@ -40,23 +41,24 @@ def register_view(request):
                 'auto_hide': True,
                 'duration': 4000
             }
-            
+
             messages.success(request, 'Account created successfully. Welcome!')
             return redirect('dashboard')
         else:
-            # Send Telegram notification for failed registration
-            from tickets.notifications import send_auth_alert
-            username = form.data.get('username', 'Unknown')
-            ip_address = request.META.get('REMOTE_ADDR', 'Unknown')
-            send_auth_alert(
-                username=username,
-                action='signup',
-                success=False,
-                ip_address=ip_address,
-                details='Form validation failed'
-            )
-            
-            # Add iOS-style notification data to session
+            try:
+                from tickets.notifications import send_auth_alert
+                username = form.data.get('username', 'Unknown')
+                ip_address = request.META.get('REMOTE_ADDR', 'Unknown')
+                send_auth_alert(
+                    username=username,
+                    action='signup',
+                    success=False,
+                    ip_address=ip_address,
+                    details='Form validation failed'
+                )
+            except Exception:
+                pass
+
             request.session['ios_notification'] = {
                 'type': 'error',
                 'title': 'Registration Failed',
@@ -81,19 +83,21 @@ def login_view(request):
         if form.is_valid():
             user = form.get_user()
             login(request, user)
-            
-            # Send Telegram notification for successful login
-            from tickets.notifications import send_auth_alert
-            ip_address = request.META.get('REMOTE_ADDR', 'Unknown')
-            send_auth_alert(
-                username=user.username,
-                action='login',
-                success=True,
-                ip_address=ip_address,
-                details=f'Role: {user.get_role_display()}'
-            )
-            
-            # Add iOS-style notification data to session
+
+            # Send Telegram notification — never let it crash the request
+            try:
+                from tickets.notifications import send_auth_alert
+                ip_address = request.META.get('REMOTE_ADDR', 'Unknown')
+                send_auth_alert(
+                    username=user.username,
+                    action='login',
+                    success=True,
+                    ip_address=ip_address,
+                    details=f'Role: {user.get_role_display()}'
+                )
+            except Exception:
+                pass
+
             request.session['ios_notification'] = {
                 'type': 'success',
                 'title': 'Login Successful',
@@ -102,24 +106,29 @@ def login_view(request):
                 'auto_hide': True,
                 'duration': 4000
             }
-            
-            next_url = request.GET.get('next', 'dashboard')
+
             messages.success(request, f'Welcome back, {user.username}!')
-            return redirect(next_url)
+            # next must be a safe relative URL — fall back to dashboard name
+            next_url = request.GET.get('next', '').strip()
+            if next_url and next_url.startswith('/'):
+                return redirect(next_url)
+            return redirect('dashboard')
         else:
-            # Send Telegram notification for failed login
-            from tickets.notifications import send_auth_alert
-            username = form.data.get('username', 'Unknown')
-            ip_address = request.META.get('REMOTE_ADDR', 'Unknown')
-            send_auth_alert(
-                username=username,
-                action='login',
-                success=False,
-                ip_address=ip_address,
-                details='Invalid credentials'
-            )
-            
-            # Add iOS-style notification data to session
+            # Send Telegram notification — never let it crash the request
+            try:
+                from tickets.notifications import send_auth_alert
+                username = form.data.get('username', 'Unknown')
+                ip_address = request.META.get('REMOTE_ADDR', 'Unknown')
+                send_auth_alert(
+                    username=username,
+                    action='login',
+                    success=False,
+                    ip_address=ip_address,
+                    details='Invalid credentials'
+                )
+            except Exception:
+                pass
+
             request.session['ios_notification'] = {
                 'type': 'error',
                 'title': 'Login Failed',
@@ -136,20 +145,21 @@ def login_view(request):
 
 @login_required
 def logout_view(request):
-    # Send Telegram notification for logout
-    from tickets.notifications import send_auth_alert
-    ip_address = request.META.get('REMOTE_ADDR', 'Unknown')
-    send_auth_alert(
-        username=request.user.username,
-        action='logout',
-        success=True,
-        ip_address=ip_address,
-        details='User logged out successfully'
-    )
-    
+    try:
+        from tickets.notifications import send_auth_alert
+        ip_address = request.META.get('REMOTE_ADDR', 'Unknown')
+        send_auth_alert(
+            username=request.user.username,
+            action='logout',
+            success=True,
+            ip_address=ip_address,
+            details='User logged out successfully'
+        )
+    except Exception:
+        pass
+
     logout(request)
-    
-    # Add iOS-style notification data to session
+
     request.session['ios_notification'] = {
         'type': 'info',
         'title': 'Logged Out',
@@ -158,7 +168,7 @@ def logout_view(request):
         'auto_hide': True,
         'duration': 4000
     }
-    
+
     messages.info(request, 'You have been logged out.')
     return redirect('login')
 
