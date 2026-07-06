@@ -23,15 +23,11 @@ RUN pip install gunicorn
 # Copy project
 COPY . .
 
-# Collect static files
-RUN python manage.py collectstatic --noinput
-
-# Run migrations
-RUN python manage.py migrate
-
 # Create a non-root user to run the application
 RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
 USER appuser
 
-# Run the application
-CMD gunicorn helpdesk.wsgi:application --bind 0.0.0.0:$PORT
+# Startup: collect static, migrate, then start gunicorn
+CMD python manage.py collectstatic --noinput && \
+    python manage.py migrate && \
+    gunicorn helpdesk.wsgi:application --bind 0.0.0.0:$PORT
