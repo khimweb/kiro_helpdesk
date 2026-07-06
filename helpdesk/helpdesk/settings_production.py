@@ -32,10 +32,24 @@ EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', '')
 EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '')
 DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'helpdesk@example.com')
 
+# Static files - whitenoise for serving static files on Render
+MIDDLEWARE = [
+    'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
+    'django.contrib.sessions.middleware.SessionMiddleware',
+    'django.middleware.common.CommonMiddleware',
+    'django.middleware.csrf.CsrfViewMiddleware',
+    'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'django.contrib.messages.middleware.MessageMiddleware',
+    'django.middleware.clickjacking.XFrameOptionsMiddleware',
+]
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+
 # Security settings for production
 if not DEBUG:
-    # HTTPS settings
-    SECURE_SSL_REDIRECT = True
+    # NOTE: Render handles SSL termination — do NOT set SECURE_SSL_REDIRECT
+    SECURE_SSL_REDIRECT = False
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
     SECURE_HSTS_SECONDS = 31536000  # 1 year
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
     SECURE_HSTS_PRELOAD = True
@@ -43,21 +57,19 @@ if not DEBUG:
     SECURE_CONTENT_TYPE_NOSNIFF = True
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
-    
-    # Logging
+
+    # Logging to console (not file — Render has no persistent filesystem)
     LOGGING = {
         'version': 1,
         'disable_existing_loggers': False,
         'handlers': {
-            'file': {
-                'level': 'ERROR',
-                'class': 'logging.FileHandler',
-                'filename': os.path.join(BASE_DIR, 'django_errors.log'),
+            'console': {
+                'class': 'logging.StreamHandler',
             },
         },
         'loggers': {
             'django': {
-                'handlers': ['file'],
+                'handlers': ['console'],
                 'level': 'ERROR',
                 'propagate': True,
             },
