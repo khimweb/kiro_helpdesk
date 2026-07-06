@@ -164,21 +164,17 @@
 {% load static %}
 <script src="{% static 'js/main.js' %}"></script>
 
-{% if request.session.ios_notification %}
+{% if ios_notification %}
 <script>
     // Store session notification for JavaScript to pick up
     window.sessionNotification = {
-        type: '{{ request.session.ios_notification.type|escapejs }}',
-        title: '{{ request.session.ios_notification.title|escapejs }}',
-        icon: '{{ request.session.ios_notification.icon|escapejs }}',
-        message: '{{ request.session.ios_notification.message|escapejs }}',
-        auto_hide: {% if request.session.ios_notification.auto_hide %}true{% else %}false{% endif %},
-        duration: {{ request.session.ios_notification.duration|default:4000 }}
+        type: '{{ ios_notification.type|escapejs }}',
+        title: '{{ ios_notification.title|escapejs }}',
+        icon: '{{ ios_notification.icon|escapejs }}',
+        message: '{{ ios_notification.message|escapejs }}',
+        auto_hide: {% if ios_notification.auto_hide %}true{% else %}false{% endif %},
+        duration: {{ ios_notification.duration|default:4000 }}
     };
-    
-    // Clear session notification after use
-    {% with request.session.pop.ios_notification as removed %}
-    {% endwith %}
 </script>
 {% endif %}
 

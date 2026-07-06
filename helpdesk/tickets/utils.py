@@ -102,3 +102,12 @@ def role_required(*roles):
             return view_func(request, *args, **kwargs)
         return _wrapped
     return decorator
+
+
+def ios_notification_context(request):
+    """
+    Context processor that pops the ios_notification from the session
+    so it's available once in templates and then cleared.
+    """
+    notification = request.session.pop('ios_notification', None)
+    return {'ios_notification': notification}
