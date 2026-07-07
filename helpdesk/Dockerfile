@@ -22,11 +22,11 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy source
 COPY . .
 
-# Make startup script executable
-RUN chmod +x start.sh
-
 # Non-root user
 RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
 USER appuser
 
-CMD ["./start.sh"]
+# Run migrations then start server
+CMD python manage.py migrate --noinput && \
+    python manage.py collectstatic --noinput && \
+    gunicorn helpdesk.wsgi:application --bind 0.0.0.0:$PORT --workers 2 --timeout 120
