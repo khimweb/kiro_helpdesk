@@ -743,3 +743,94 @@ a, button, .card, .stat-card, .dropdown-item {
   .form-actions .btn { width: 100%; justify-content: center; }
   .ai-suggestion-badges { justify-content: center; }
 }
+
+/* ═══════════════════════════════════════════════════
+   TABLET — iPad / iPad Pro  (769px – 1024px)
+   ═══════════════════════════════════════════════════ */
+@media (min-width: 769px) and (max-width: 1024px) {
+  :root {
+    --sidebar-width: 64px;
+    --navbar-height: 60px;
+  }
+
+  /* Sidebar stays as icon-only, no toggle needed */
+  .sidebar-toggle { display: none !important; }
+
+  .sidebar {
+    left: 10px;
+    top: calc(var(--navbar-height) + 10px);
+    bottom: 10px;
+    width: var(--sidebar-width);
+    border-radius: 18px;
+  }
+
+  .main-content {
+    margin-left: calc(var(--sidebar-width) + 10px + 20px);
+    margin-top: calc(var(--navbar-height) + 18px);
+    padding: 0 18px 40px 0;
+  }
+  .main-content.sidebar-expanded {
+    margin-left: calc(var(--sidebar-expanded) + 10px + 20px);
+  }
+
+  /* 3-column stat cards on tablet */
+  .col-xl-2 { flex: 0 0 auto; width: 33.333%; }
+
+  /* Slightly smaller card radius */
+  .card { border-radius: 18px; }
+  .stat-card { padding: 18px; }
+  .stat-card .stat-value { font-size: 1.75rem; }
+
+  /* Table font slightly smaller */
+  .table td { font-size: 0.85rem; padding: 12px 14px; }
+  .table thead th { font-size: 0.68rem; }
+
+  /* Navbar */
+  .navbar { padding: 0 18px; }
+
+  /* Login card comfortable width */
+  .unauth-wrapper .card { width: 420px !important; }
+}
+
+/* ═══════════════════════════════════════════════════
+   LARGE DESKTOP  (1280px+)
+   ═══════════════════════════════════════════════════ */
+@media (min-width: 1280px) {
+  :root {
+    --sidebar-width: 72px;
+    --sidebar-expanded: 256px;
+    --navbar-height: 64px;
+  }
+
+  .main-content {
+    margin-left: calc(var(--sidebar-width) + 12px + 28px);
+    margin-top: calc(var(--navbar-height) + 24px);
+    padding: 0 32px 60px 0;
+    max-width: 1600px;
+  }
+  .main-content.sidebar-expanded {
+    margin-left: calc(var(--sidebar-expanded) + 12px + 28px);
+  }
+
+  /* 6-column stat grid on wide screens */
+  .col-xl-2 { flex: 0 0 auto; width: 16.6667%; }
+
+  .stat-card { padding: 24px; }
+  .stat-card .stat-value { font-size: 2.1rem; }
+
+  .card-body { padding: 26px; }
+  .card-header { padding: 18px 26px; }
+
+  .page-header h4 { font-size: 1.55rem; }
+
+  /* Wider sidebar expanded label */
+  .sidebar.expanded { width: var(--sidebar-expanded); }
+}
+
+/* ═══════════════════════════════════════════════════
+   ULTRAWIDE  (1600px+)
+   ═══════════════════════════════════════════════════ */
+@media (min-width: 1600px) {
+  .main-content { padding-right: 48px; }
+  .stat-card .stat-value { font-size: 2.3rem; }
+}

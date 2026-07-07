@@ -16,6 +16,13 @@
     transition: transform 0.45s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
+  @media (max-width: 768px) {
+    .users-panel {
+      bottom: var(--bottom-nav-height);
+      z-index: 799;
+    }
+  }
+
   .users-panel.open {
     transform: translateY(0);
   }
@@ -126,7 +133,7 @@
 <!-- ── Stat Cards ─────────────────────────────────────────── -->
 <div class="row g-3 mb-4">
 
-  <div class="col-6 col-xl-2">
+  <div class="col-6 col-md-4 col-xl-2">
     <div class="stat-card total card">
       <div class="stat-icon" style="background:var(--primary-ultra-light);">
         <i class="fa fa-ticket-alt" style="color:var(--primary);"></i>
@@ -140,7 +147,7 @@
     </div>
   </div>
 
-  <div class="col-6 col-xl-2">
+  <div class="col-6 col-md-4 col-xl-2">
     <div class="stat-card s-open card">
       <div class="stat-icon" style="background:#e8f4ff;">
         <i class="fa fa-folder-open" style="color:#0984e3;"></i>
@@ -154,7 +161,7 @@
     </div>
   </div>
 
-  <div class="col-6 col-xl-2">
+  <div class="col-6 col-md-4 col-xl-2">
     <div class="stat-card s-progress card">
       <div class="stat-icon" style="background:#fff8e1;">
         <i class="fa fa-spinner" style="color:#e67e22;"></i>
@@ -168,7 +175,7 @@
     </div>
   </div>
 
-  <div class="col-6 col-xl-2">
+  <div class="col-6 col-md-4 col-xl-2">
     <div class="stat-card s-resolved card">
       <div class="stat-icon" style="background:#e8f8f0;">
         <i class="fa fa-check-circle" style="color:var(--success);"></i>
@@ -182,7 +189,7 @@
     </div>
   </div>
 
-  <div class="col-6 col-xl-2">
+  <div class="col-6 col-md-4 col-xl-2">
     <div class="stat-card s-closed card">
       <div class="stat-icon" style="background:#f0f0f0;">
         <i class="fa fa-lock" style="color:#636e72;"></i>
@@ -196,7 +203,7 @@
     </div>
   </div>
 
-  <div class="col-6 col-xl-2">
+  <div class="col-6 col-md-4 col-xl-2">
     <div class="stat-card s-breach card">
       <div class="stat-icon" style="background:#fff0ef;">
         <i class="fa fa-exclamation-circle" style="color:var(--danger);"></i>
@@ -221,6 +228,7 @@
         <a href="{% url 'ticket_list' %}" class="btn btn-sm btn-outline-primary">View All</a>
       </div>
       <div class="card-body p-0">
+        <div class="table-responsive">
         <table class="table mb-0">
           <thead>
             <tr>
@@ -253,6 +261,7 @@
             {% endfor %}
           </tbody>
         </table>
+        </div>
       </div>
     </div>
   </div>

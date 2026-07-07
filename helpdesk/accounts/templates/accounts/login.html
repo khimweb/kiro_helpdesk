@@ -1,36 +1,61 @@
 {% extends 'base.html' %}
 {% block title %}Login — HelpDesk{% endblock %}
+
+{% block extra_css %}
+<style>
+.login-wrap {
+  width: 100%;
+  max-width: 440px;
+  animation: fadeUp 0.45s cubic-bezier(0.4,0,0.2,1) both;
+}
+.login-logo {
+  width: 72px; height: 72px;
+  border-radius: 22px;
+  background: linear-gradient(135deg, var(--primary), var(--primary-light));
+  display: flex; align-items: center; justify-content: center;
+  margin: 0 auto 20px;
+  box-shadow: 0 8px 30px rgba(108,92,231,0.35);
+}
+</style>
+{% endblock %}
+
 {% block unauth_content %}
-<div class="card shadow-lg" style="width: 420px; border-radius: 24px;">
-  <div class="card-body p-5">
-    <div class="text-center mb-4">
-      <div class="rounded-circle bg-primary d-inline-flex align-items-center justify-content-center mb-3" style="width: 80px; height: 80px;">
-        <i class="fa fa-headset fa-2x text-white"></i>
+<div class="login-wrap">
+  <div class="card" style="border-radius:28px;">
+    <div class="card-body" style="padding:36px 32px;">
+      <div class="text-center mb-4">
+        <div class="login-logo">
+          <i class="fa fa-headset fa-2x text-white"></i>
+        </div>
+        <h3 class="fw-bold mb-1" style="font-size:1.5rem;letter-spacing:-0.02em;">Welcome Back</h3>
+        <p class="text-muted" style="font-size:.88rem;">Sign in to HelpDesk System</p>
       </div>
-      <h3 class="fw-bold mb-1">Welcome Back</h3>
-      <p class="text-muted small">Sign in to continue to HelpDesk</p>
-    </div>
-    <form method="post" novalidate>
-      {% csrf_token %}
-      {% for field in form %}
+
+      <form method="post" novalidate>
+        {% csrf_token %}
+        {% for field in form %}
         <div class="mb-3">
-          <label class="form-label small fw-semibold">{{ field.label }}</label>
+          <label class="form-label">{{ field.label }}</label>
           {{ field }}
           {% if field.errors %}
-            <div class="text-danger small mt-1">{{ field.errors.as_text }}</div>
+          <div class="text-danger mt-1" style="font-size:.82rem;">{{ field.errors.as_text }}</div>
           {% endif %}
         </div>
-      {% endfor %}
-      <div class="d-grid mt-4">
-        <button class="btn btn-primary btn-lg" type="submit">
-          <i class="fa fa-sign-in-alt me-2"></i>Sign In
-        </button>
-      </div>
-    </form>
-    <hr class="my-4">
-    <p class="text-center text-muted mb-0 small">
-      Don't have an account? <a href="{% url 'register' %}" class="fw-semibold">Create one</a>
-    </p>
+        {% endfor %}
+
+        <div class="d-grid mt-4">
+          <button class="btn btn-primary btn-lg" type="submit">
+            <i class="fa fa-sign-in-alt me-2"></i>Sign In
+          </button>
+        </div>
+      </form>
+
+      <hr class="my-4" style="opacity:.08;">
+      <p class="text-center mb-0" style="font-size:.85rem;color:var(--text-secondary);">
+        Don't have an account?
+        <a href="{% url 'register' %}" class="fw-semibold" style="color:var(--primary);">Create one</a>
+      </p>
+    </div>
   </div>
 </div>
 {% endblock %}

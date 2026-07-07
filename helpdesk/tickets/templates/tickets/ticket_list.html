@@ -1,89 +1,183 @@
 {% extends 'base.html' %}
-{% block title %}Tickets{% endblock %}
+{% block title %}Tickets — HelpDesk{% endblock %}
+
+{% block extra_css %}
+<style>
+/* Mobile ticket cards */
+.ticket-card-mobile {
+  background: #fff;
+  border-radius: 16px;
+  padding: 16px;
+  margin-bottom: 12px;
+  box-shadow: var(--shadow);
+  display: none;
+  transition: var(--transition);
+  text-decoration: none;
+  color: inherit;
+}
+.ticket-card-mobile:active { transform: scale(0.98); }
+
+/* Filter bar pill style */
+.filter-bar { background:#fff; border-radius: var(--radius); padding:16px 18px; box-shadow: var(--shadow); margin-bottom:20px; }
+
+@media (max-width: 768px) {
+  .ticket-table-wrap { display: none; }
+  .ticket-card-mobile { display: block; }
+  .filter-bar { padding: 14px; border-radius: var(--radius-sm); }
+  .filter-bar .row { gap: 8px; }
+  .filter-bar .col-md-4,
+  .filter-bar .col-md-2 { width: 100%; }
+}
+@media (min-width: 769px) and (max-width: 1024px) {
+  .ticket-table-wrap .table td { font-size: 0.82rem; }
+  /* Hide less important columns on tablet */
+  .col-hide-tablet { display: none; }
+}
+</style>
+{% endblock %}
+
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
-  <h4 class="fw-bold"><i class="fa fa-ticket-alt me-2 text-primary"></i>Tickets</h4>
+
+<div class="page-header">
+  <h4><i class="fa fa-ticket-alt me-2" style="color:var(--primary);"></i>Tickets</h4>
   <a href="{% url 'ticket_create' %}" class="btn btn-primary">
-    <i class="fa fa-plus me-1"></i>New Ticket
+    <i class="fa fa-plus me-1"></i><span class="d-none d-sm-inline">New Ticket</span>
   </a>
 </div>
 
-<!-- Filters -->
-<div class="card shadow-sm mb-4">
-  <div class="card-body">
-    <form method="get" class="row g-2 align-items-end">
-      <div class="col-md-4">{{ form.q }}</div>
-      <div class="col-md-2">{{ form.status }}</div>
-      <div class="col-md-2">{{ form.priority }}</div>
-      <div class="col-md-2">{{ form.category }}</div>
-      <div class="col-md-2 d-flex gap-2">
+<!-- ── Filters ─────────────────────────────────────── -->
+<div class="filter-bar mb-4">
+  <form method="get">
+    <div class="row g-2 align-items-end">
+      <div class="col-12 col-md-4">
+        {{ form.q }}
+      </div>
+      <div class="col-6 col-md-2">{{ form.status }}</div>
+      <div class="col-6 col-md-2">{{ form.priority }}</div>
+      <div class="col-12 col-md-2">{{ form.category }}</div>
+      <div class="col-12 col-md-2 d-flex gap-2">
         <button class="btn btn-primary flex-fill" type="submit">
           <i class="fa fa-search me-1"></i>Filter
         </button>
-        <a href="{% url 'ticket_list' %}" class="btn btn-outline-secondary"><i class="fa fa-times"></i></a>
+        <a href="{% url 'ticket_list' %}" class="btn btn-secondary">
+          <i class="fa fa-times"></i>
+        </a>
       </div>
-    </form>
-  </div>
+    </div>
+  </form>
 </div>
 
-<div class="card shadow-sm">
+<!-- ── Desktop / Tablet Table ─────────────────────── -->
+<div class="card ticket-table-wrap">
   <div class="card-body p-0">
-    <table class="table table-hover mb-0">
-      <thead class="table-dark">
-        <tr>
-          <th>Ticket ID</th><th>Title</th><th>Category</th>
-          <th>Status</th><th>Priority</th><th>Created By</th>
-          <th>Assigned To</th><th>Created</th><th></th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for ticket in page_obj %}
-        <tr>
-          <td><code>{{ ticket.ticket_id }}</code></td>
-          <td>{{ ticket.title|truncatechars:45 }}</td>
-          <td>{{ ticket.category.name|default:"—" }}</td>
-          <td><span class="badge status-{{ ticket.status }}">{{ ticket.get_status_display }}</span></td>
-          <td><span class="badge priority-{{ ticket.priority }}">{{ ticket.get_priority_display }}</span></td>
-          <td>{{ ticket.created_by.username }}</td>
-          <td>{{ ticket.assigned_to.username|default:"—" }}</td>
-          <td>{{ ticket.created_at|date:"M d, Y" }}</td>
-          <td>
-            <a href="{% url 'ticket_detail' ticket.ticket_id %}" class="btn btn-sm btn-outline-primary">
-              <i class="fa fa-eye"></i>
-            </a>
-            {% if request.user.role in 'admin,agent' %}
-            <a href="{% url 'ticket_update' ticket.ticket_id %}" class="btn btn-sm btn-outline-warning ms-1">
-              <i class="fa fa-edit"></i>
-            </a>
-            {% endif %}
-            {% if request.user.role == 'admin' %}
-            <a href="{% url 'ticket_delete' ticket.ticket_id %}" class="btn btn-sm btn-outline-danger ms-1">
-              <i class="fa fa-trash"></i>
-            </a>
-            {% endif %}
-          </td>
-        </tr>
-        {% empty %}
-        <tr><td colspan="9" class="text-center py-4 text-muted">No tickets found.</td></tr>
-        {% endfor %}
-      </tbody>
-    </table>
+    <div class="table-responsive">
+      <table class="table mb-0">
+        <thead>
+          <tr>
+            <th>Ticket ID</th>
+            <th>Title</th>
+            <th class="col-hide-tablet">Category</th>
+            <th>Status</th>
+            <th>Priority</th>
+            <th class="col-hide-tablet">Created By</th>
+            <th>Assigned</th>
+            <th class="col-hide-tablet">Date</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for ticket in page_obj %}
+          <tr style="cursor:pointer;" onclick="window.location='{% url 'ticket_detail' ticket.ticket_id %}'">
+            <td><code>{{ ticket.ticket_id }}</code></td>
+            <td>
+              <div class="fw-semibold" style="font-size:.88rem;">{{ ticket.title|truncatechars:40 }}</div>
+            </td>
+            <td class="col-hide-tablet" style="font-size:.84rem;">{{ ticket.category.name|default:"—" }}</td>
+            <td><span class="badge status-{{ ticket.status }}">{{ ticket.get_status_display }}</span></td>
+            <td><span class="badge priority-{{ ticket.priority }}">{{ ticket.get_priority_display }}</span></td>
+            <td class="col-hide-tablet" style="font-size:.84rem;">{{ ticket.created_by.username }}</td>
+            <td style="font-size:.84rem;">{{ ticket.assigned_to.username|default:"—" }}</td>
+            <td class="col-hide-tablet" style="font-size:.82rem;color:var(--text-secondary);">{{ ticket.created_at|date:"M d, Y" }}</td>
+            <td onclick="event.stopPropagation()">
+              <div class="d-flex gap-1">
+                <a href="{% url 'ticket_detail' ticket.ticket_id %}" class="btn btn-sm btn-outline-primary" title="View">
+                  <i class="fa fa-eye"></i>
+                </a>
+                {% if request.user.role == 'admin' or request.user.role == 'agent' %}
+                <a href="{% url 'ticket_update' ticket.ticket_id %}" class="btn btn-sm btn-outline-warning" title="Edit">
+                  <i class="fa fa-edit"></i>
+                </a>
+                {% endif %}
+                {% if request.user.role == 'admin' %}
+                <a href="{% url 'ticket_delete' ticket.ticket_id %}" class="btn btn-sm btn-outline-danger" title="Delete">
+                  <i class="fa fa-trash"></i>
+                </a>
+                {% endif %}
+              </div>
+            </td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="9" class="text-center py-5" style="color:var(--text-muted);">
+              <i class="fa fa-inbox fa-2x d-block mb-2"></i>No tickets found
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
   </div>
 </div>
 
+<!-- ── Mobile Card List ────────────────────────────── -->
+{% for ticket in page_obj %}
+<a href="{% url 'ticket_detail' ticket.ticket_id %}" class="ticket-card-mobile d-block">
+  <div class="d-flex justify-content-between align-items-start mb-2">
+    <div class="fw-semibold" style="font-size:.92rem;flex:1;margin-right:10px;">{{ ticket.title|truncatechars:50 }}</div>
+    <span class="badge priority-{{ ticket.priority }}">{{ ticket.get_priority_display }}</span>
+  </div>
+  <div class="d-flex align-items-center justify-content-between">
+    <div class="d-flex align-items-center gap-2">
+      <span class="badge status-{{ ticket.status }}">{{ ticket.get_status_display }}</span>
+      <code style="font-size:.72rem;">{{ ticket.ticket_id }}</code>
+    </div>
+    <span style="font-size:.78rem;color:var(--text-secondary);">{{ ticket.created_at|date:"M d" }}</span>
+  </div>
+  {% if ticket.assigned_to %}
+  <div class="mt-2" style="font-size:.78rem;color:var(--text-secondary);">
+    <i class="fa fa-user me-1"></i>{{ ticket.assigned_to.username }}
+  </div>
+  {% endif %}
+</a>
+{% empty %}
+<div class="text-center py-5 ticket-card-mobile d-block" style="color:var(--text-muted);">
+  <i class="fa fa-inbox fa-2x d-block mb-2"></i>No tickets found
+</div>
+{% endfor %}
+
+<!-- ── Pagination ──────────────────────────────────── -->
 {% if page_obj.has_other_pages %}
-<nav class="mt-3">
-  <ul class="pagination justify-content-center">
+<nav class="mt-4">
+  <ul class="pagination justify-content-center flex-wrap gap-1">
     {% if page_obj.has_previous %}
-      <li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}&{{ request.GET.urlencode }}">Previous</a></li>
+    <li class="page-item">
+      <a class="page-link" href="?page={{ page_obj.previous_page_number }}&{{ request.GET.urlencode }}">
+        <i class="fa fa-chevron-left"></i>
+      </a>
+    </li>
     {% endif %}
     <li class="page-item disabled">
-      <span class="page-link">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+      <span class="page-link">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
     </li>
     {% if page_obj.has_next %}
-      <li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}&{{ request.GET.urlencode }}">Next</a></li>
+    <li class="page-item">
+      <a class="page-link" href="?page={{ page_obj.next_page_number }}&{{ request.GET.urlencode }}">
+        <i class="fa fa-chevron-right"></i>
+      </a>
+    </li>
     {% endif %}
   </ul>
 </nav>
 {% endif %}
+
 {% endblock %}
