@@ -97,7 +97,8 @@ class Attachment(models.Model):
 
     @property
     def filename(self):
-        return self.file.name.split('/')[-1]
+        import os
+        return os.path.basename(self.file.name)
 
     def __str__(self):
         return f'Attachment for {self.ticket.ticket_id}'
@@ -111,16 +112,18 @@ class CommentAttachment(models.Model):
 
     @property
     def filename(self):
-        return self.file.name.split('/')[-1]
+        import os
+        return os.path.basename(self.file.name)
 
     @property
     def file_icon(self):
-        ext = self.filename.split('.')[-1].lower()
+        ext = self.filename.rsplit('.', 1)[-1].lower() if '.' in self.filename else ''
         icons = {
             'pdf': 'fa-file-pdf',
             'doc': 'fa-file-word', 'docx': 'fa-file-word',
             'xls': 'fa-file-excel', 'xlsx': 'fa-file-excel',
-            'jpg': 'fa-file-image', 'jpeg': 'fa-file-image', 'png': 'fa-file-image', 'gif': 'fa-file-image',
+            'jpg': 'fa-file-image', 'jpeg': 'fa-file-image',
+            'png': 'fa-file-image', 'gif': 'fa-file-image',
             'zip': 'fa-file-archive', 'rar': 'fa-file-archive',
             'txt': 'fa-file-alt',
             'exe': 'fa-file-code',
