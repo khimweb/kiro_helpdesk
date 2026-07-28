@@ -1,0 +1,467 @@
+{% extends 'base.html' %}
+{% block title %}Assign Tickets{% endblock %}
+
+{% block extra_css %}
+<style>
+/* Slide-over panel */
+.slide-panel {
+  position: fixed;
+  top: 0; right: -100%; bottom: 0;
+  width: min(520px, 100vw);
+  background: #fff;
+  z-index: 1100;
+  box-shadow: -8px 0 40px rgba(0,0,0,0.18);
+  transition: right 0.4s cubic-bezier(0.4,0,0.2,1);
+  display: flex;
+  flex-direction: column;
+  border-radius: 20px 0 0 20px;
+  overflow: hidden;
+}
+.slide-panel.open { right: 0; }
+.slide-panel-overlay {
+  display: none;
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.45);
+  backdrop-filter: blur(3px);
+  z-index: 1099;
+}
+.slide-panel-overlay.open { display: block; }
+.slide-panel-header {
+  padding: 22px 24px 16px;
+  border-bottom: 1px solid rgba(0,0,0,0.07);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--primary);
+  color: #fff;
+}
+.slide-panel-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px 24px;
+  -webkit-overflow-scrolling: touch;
+}
+.close-btn {
+  background: rgba(255,255,255,0.2);
+  border: none;
+  color: #fff;
+  width: 32px; height: 32px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 14px;
+  transition: var(--transition);
+  display: flex; align-items: center; justify-content: center;
+}
+.close-btn:hover { background: rgba(255,255,255,0.35); }
+
+/* Stage badge */
+.stage-badge {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 4px 10px; border-radius: 20px;
+  font-size: .72rem; font-weight: 600;
+}
+
+/* Send modal overlay */
+.send-modal {
+  position: fixed; inset: 0;
+  z-index: 1200;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0,0,0,0.5);
+  backdrop-filter: blur(4px);
+}
+.send-modal.open { display: flex; }
+.send-modal-box {
+  background: #fff;
+  border-radius: 24px;
+  width: min(480px, 95vw);
+  max-height: 85vh;
+  overflow-y: auto;
+  padding: 28px;
+  animation: fadeUp 0.3s ease;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+}
+
+/* Role section */
+.role-section { margin-bottom: 20px; }
+.role-label {
+  font-size: .72rem; font-weight: 700; letter-spacing: .08em;
+  text-transform: uppercase; color: var(--text-secondary);
+  margin-bottom: 8px;
+}
+.user-radio-item {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 14px; border-radius: var(--radius-xs);
+  border: 1.5px solid #e0e0e0;
+  margin-bottom: 6px; cursor: pointer;
+  transition: var(--transition);
+}
+.user-radio-item:hover { border-color: var(--primary); background: var(--primary-ultra-light); }
+.user-radio-item input[type="radio"] { accent-color: var(--primary); width: 16px; height: 16px; }
+.user-radio-item.selected { border-color: var(--primary); background: var(--primary-ultra-light); }
+
+/* Check btn */
+.btn-check-ticket {
+  background: var(--primary-ultra-light);
+  color: var(--primary);
+  border: 1.5px solid var(--primary-light);
+  border-radius: var(--radius-xs);
+  padding: 5px 12px;
+  font-size: .8rem; font-weight: 600;
+  cursor: pointer;
+  transition: var(--transition);
+}
+.btn-check-ticket:hover { background: var(--primary); color: #fff; }
+.btn-check-ticket.checked { background: #e8f8f0; color: var(--success); border-color: var(--success); }
+
+/* Progress steps */
+.step-track { display: flex; align-items: center; margin-bottom: 16px; }
+.step-dot {
+  width: 32px; height: 32px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px; flex-shrink: 0;
+  transition: var(--transition);
+}
+.step-dot.done { background: var(--success); color: #fff; }
+.step-dot.pending { background: #f0f0f0; color: var(--text-muted); }
+.step-line { flex: 1; height: 2px; background: #e0e0e0; margin: 0 6px; }
+.step-line.done { background: var(--success); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h4><i class="fa fa-tasks me-2" style="color:var(--primary);"></i>Assign Tickets</h4>
+</div>
+
+<!-- Ticket table -->
+<div class="card">
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table mb-0">
+        <thead>
+          <tr>
+            <th>Ticket</th>
+            <th>Title</th>
+            <th>Priority</th>
+            <th>Status</th>
+            <th>Stage</th>
+            <th>Created By</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for ticket in tickets %}
+          {% with asgn=ticket.assignment %}
+          <tr>
+            <td><code style="font-size:.78rem;">{{ ticket.ticket_id }}</code></td>
+            <td>
+              <div class="fw-semibold" style="font-size:.88rem;">{{ ticket.title|truncatechars:40 }}</div>
+            </td>
+            <td><span class="badge priority-{{ ticket.priority }}">{{ ticket.get_priority_display }}</span></td>
+            <td><span class="badge status-{{ ticket.status }}">{{ ticket.get_status_display }}</span></td>
+            <td>
+              {% if asgn.it_staff_completed %}
+                <span class="stage-badge" style="background:#e8f8f0;color:var(--success);">
+                  <i class="fa fa-check-circle"></i> Completed
+                </span>
+              {% elif asgn.assigned_to_it_staff %}
+                <span class="stage-badge" style="background:#fff8e1;color:#e67e22;">
+                  <i class="fa fa-tools"></i> IT Staff
+                </span>
+              {% elif asgn.assigned_to_manager %}
+                <span class="stage-badge" style="background:var(--primary-ultra-light);color:var(--primary);">
+                  <i class="fa fa-user-tie"></i> Manager
+                </span>
+              {% elif asgn.admin_checked %}
+                <span class="stage-badge" style="background:#e8f4ff;color:#0984e3;">
+                  <i class="fa fa-user-shield"></i> Checked
+                </span>
+              {% else %}
+                <span class="stage-badge" style="background:#f0f0f0;color:#636e72;">
+                  <i class="fa fa-clock"></i> Pending
+                </span>
+              {% endif %}
+            </td>
+            <td style="font-size:.84rem;">{{ ticket.created_by.username }}</td>
+            <td>
+              <div class="d-flex gap-1 flex-wrap">
+                <!-- View detail -->
+                <button class="btn btn-sm btn-outline-primary"
+                        onclick="openDetail('{{ ticket.ticket_id }}')"
+                        title="View Details">
+                  <i class="fa fa-eye"></i>
+                </button>
+
+                <!-- Check button -->
+                {% if not asgn.admin_checked and request.user.is_admin or not asgn.manager_checked and request.user.role == 'manager_it' %}
+                <button class="btn-check-ticket {% if asgn.admin_checked or asgn.manager_checked %}checked{% endif %}"
+                        id="chk-{{ ticket.ticket_id }}"
+                        onclick="doCheck('{{ ticket.ticket_id }}')"
+                        title="Mark as Checked">
+                  <i class="fa fa-check me-1"></i>Check
+                </button>
+                {% else %}
+                <button class="btn-check-ticket checked" disabled title="Already checked">
+                  <i class="fa fa-check-circle me-1"></i>Checked
+                </button>
+                {% endif %}
+
+                <!-- Send button -->
+                <button class="btn btn-sm btn-primary"
+                        onclick="openSend('{{ ticket.ticket_id }}', '{{ ticket.title|escapejs }}')"
+                        title="Send to User/Manager/IT Staff">
+                  <i class="fa fa-paper-plane me-1"></i>Send
+                </button>
+              </div>
+            </td>
+          </tr>
+          {% endwith %}
+          {% empty %}
+          <tr>
+            <td colspan="7" class="text-center py-5" style="color:var(--text-muted);">
+              <i class="fa fa-inbox fa-2x d-block mb-2"></i>No tickets
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ── Slide Panel: Ticket Detail ────────── -->
+<div class="slide-panel-overlay" id="detailOverlay" onclick="closeDetail()"></div>
+<div class="slide-panel" id="detailPanel">
+  <div class="slide-panel-header">
+    <div>
+      <div class="fw-bold" id="panelTicketId" style="font-size:.82rem;opacity:.8;"></div>
+      <div class="fw-bold" id="panelTitle" style="font-size:1.1rem;"></div>
+    </div>
+    <button class="close-btn" onclick="closeDetail()"><i class="fa fa-times"></i></button>
+  </div>
+  <div class="slide-panel-body" id="panelBody">
+    Loading...
+  </div>
+</div>
+
+<!-- ── Send Modal ─────────────────────────── -->
+<div class="send-modal" id="sendModal">
+  <div class="send-modal-box">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+      <div>
+        <h5 class="fw-bold mb-0"><i class="fa fa-paper-plane me-2" style="color:var(--primary);"></i>Send Ticket</h5>
+        <div class="text-muted" id="sendTicketTitle" style="font-size:.84rem;"></div>
+      </div>
+      <button class="close-btn" onclick="closeSend()"
+              style="background:#f0f0f0;color:var(--text-secondary);">
+        <i class="fa fa-times"></i>
+      </button>
+    </div>
+
+    <form id="sendForm">
+      <input type="hidden" id="sendTicketId">
+
+      {% if request.user.role == 'admin' %}
+      <!-- Users -->
+      <div class="role-section">
+        <div class="role-label"><i class="fa fa-user me-1"></i>Users</div>
+        {% for u in all_users %}
+        <label class="user-radio-item">
+          <input type="radio" name="recipient" value="{{ u.id }}">
+          <div class="{% if u.profile_picture %}nav-avatar{% else %}nav-avatar-initials{% endif %}" style="width:32px;height:32px;font-size:.75rem;">
+            {% if u.profile_picture %}<img src="{{ u.profile_picture.url }}" style="width:32px;height:32px;border-radius:50%;object-fit:cover;">
+            {% else %}{{ u.username|slice:":1"|upper }}{% endif %}
+          </div>
+          <div>
+            <div class="fw-semibold" style="font-size:.88rem;">{{ u.get_full_name|default:u.username }}</div>
+            <div class="text-muted" style="font-size:.75rem;">@{{ u.username }}</div>
+          </div>
+          <span class="badge ms-auto" style="background:#f0f0f0;color:#636e72;font-size:.65rem;">User</span>
+        </label>
+        {% endfor %}
+      </div>
+
+      <!-- Manager IT -->
+      <div class="role-section">
+        <div class="role-label"><i class="fa fa-user-tie me-1"></i>Manager IT</div>
+        {% for u in managers %}
+        <label class="user-radio-item">
+          <input type="radio" name="recipient" value="{{ u.id }}">
+          <div class="nav-avatar-initials" style="width:32px;height:32px;font-size:.75rem;">{{ u.username|slice:":1"|upper }}</div>
+          <div>
+            <div class="fw-semibold" style="font-size:.88rem;">{{ u.get_full_name|default:u.username }}</div>
+            <div class="text-muted" style="font-size:.75rem;">@{{ u.username }}</div>
+          </div>
+          <span class="badge ms-auto" style="background:#e8f4ff;color:#0984e3;font-size:.65rem;">Manager IT</span>
+        </label>
+        {% endfor %}
+      </div>
+
+      <!-- IT Staff -->
+      <div class="role-section">
+        <div class="role-label"><i class="fa fa-tools me-1"></i>IT Staff</div>
+        {% for u in it_staff_list %}
+        <label class="user-radio-item">
+          <input type="radio" name="recipient" value="{{ u.id }}">
+          <div class="nav-avatar-initials" style="width:32px;height:32px;font-size:.75rem;">{{ u.username|slice:":1"|upper }}</div>
+          <div>
+            <div class="fw-semibold" style="font-size:.88rem;">{{ u.get_full_name|default:u.username }}</div>
+            <div class="text-muted" style="font-size:.75rem;">@{{ u.username }}</div>
+          </div>
+          <span class="badge ms-auto" style="background:#e8f8f0;color:var(--success);font-size:.65rem;">IT Staff</span>
+        </label>
+        {% endfor %}
+      </div>
+
+      {% else %}
+      <!-- Manager IT only sees IT Staff -->
+      <div class="role-section">
+        <div class="role-label"><i class="fa fa-tools me-1"></i>IT Staff</div>
+        {% for u in it_staff_list %}
+        <label class="user-radio-item">
+          <input type="radio" name="recipient" value="{{ u.id }}">
+          <div class="nav-avatar-initials" style="width:32px;height:32px;font-size:.75rem;">{{ u.username|slice:":1"|upper }}</div>
+          <div>
+            <div class="fw-semibold" style="font-size:.88rem;">{{ u.get_full_name|default:u.username }}</div>
+            <div class="text-muted" style="font-size:.75rem;">@{{ u.username }}</div>
+          </div>
+          <span class="badge ms-auto" style="background:#e8f8f0;color:var(--success);font-size:.65rem;">IT Staff</span>
+        </label>
+        {% endfor %}
+      </div>
+      {% endif %}
+    </form>
+
+    <div class="d-flex gap-2 mt-3">
+      <button class="btn btn-primary flex-fill" onclick="submitSend()">
+        <i class="fa fa-paper-plane me-2"></i>Send Ticket
+      </button>
+      <button class="btn btn-secondary" onclick="closeSend()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// ── Detail panel ─────────────────────────
+function openDetail(ticketId) {
+  fetch(`/tickets/${ticketId}/`)
+    .then(r => r.text())
+    .then(html => {
+      // Extract key info from the ticket page
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(html, 'text/html');
+      // Get assignment status
+      fetch(`/assign/${ticketId}/status/`)
+        .then(r => r.json())
+        .then(data => {
+          document.getElementById('panelTicketId').textContent = ticketId;
+          document.getElementById('panelTitle').textContent = 'Ticket Details';
+          let stepsHtml = '<div class="mb-3"><div class="fw-semibold mb-2">Processing Steps</div><div class="d-flex flex-column gap-2">';
+          data.steps.forEach(s => {
+            stepsHtml += `
+              <div class="d-flex align-items-center gap-3 p-2 rounded-2" style="background:${s.done ? '#e8f8f0' : '#f8f8f8'};">
+                <div class="step-dot ${s.done ? 'done' : 'pending'}">
+                  <i class="fa ${s.icon}"></i>
+                </div>
+                <div>
+                  <div class="fw-semibold" style="font-size:.88rem;color:${s.done ? 'var(--success)' : 'var(--text-muted)'};">${s.label}</div>
+                  ${s.by ? `<div class="text-muted" style="font-size:.75rem;">by ${s.by}</div>` : ''}
+                </div>
+                ${s.done ? '<i class="fa fa-check-circle ms-auto text-success"></i>' : '<i class="fa fa-clock ms-auto" style="color:var(--text-muted);"></i>'}
+              </div>`;
+          });
+          stepsHtml += '</div></div>';
+          stepsHtml += `<a href="/tickets/${ticketId}/" target="_blank" class="btn btn-outline-primary w-100 mt-2">
+            <i class="fa fa-external-link-alt me-2"></i>Open Full Ticket
+          </a>
+          <a href="/tickets/${ticketId}/update/" class="btn btn-warning w-100 mt-2">
+            <i class="fa fa-edit me-2"></i>Update Ticket
+          </a>`;
+          document.getElementById('panelBody').innerHTML = stepsHtml;
+          document.getElementById('detailPanel').classList.add('open');
+          document.getElementById('detailOverlay').classList.add('open');
+        });
+    });
+}
+
+function closeDetail() {
+  document.getElementById('detailPanel').classList.remove('open');
+  document.getElementById('detailOverlay').classList.remove('open');
+}
+
+// ── Send modal ───────────────────────────
+function openSend(ticketId, title) {
+  document.getElementById('sendTicketId').value = ticketId;
+  document.getElementById('sendTicketTitle').textContent = title;
+  document.getElementById('sendModal').classList.add('open');
+  // Deselect all
+  document.querySelectorAll('#sendForm input[type="radio"]').forEach(r => r.checked = false);
+  document.querySelectorAll('.user-radio-item').forEach(i => i.classList.remove('selected'));
+}
+
+function closeSend() {
+  document.getElementById('sendModal').classList.remove('open');
+}
+
+// Highlight selected radio
+document.addEventListener('change', function(e) {
+  if (e.target.name === 'recipient') {
+    document.querySelectorAll('.user-radio-item').forEach(i => i.classList.remove('selected'));
+    e.target.closest('.user-radio-item').classList.add('selected');
+  }
+});
+
+function submitSend() {
+  const ticketId = document.getElementById('sendTicketId').value;
+  const selected = document.querySelector('#sendForm input[name="recipient"]:checked');
+  if (!selected) { alert('Please select a recipient.'); return; }
+
+  const fd = new FormData();
+  fd.append('recipient_id', selected.value);
+  fd.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+
+  fetch(`/assign/${ticketId}/send/`, {
+    method: 'POST',
+    body: fd,
+    headers: { 'X-Requested-With': 'XMLHttpRequest' }
+  }).then(r => r.json()).then(data => {
+    if (data.ok) {
+      closeSend();
+      location.reload();
+    }
+  });
+}
+
+// ── Check ────────────────────────────────
+function doCheck(ticketId) {
+  const fd = new FormData();
+  fd.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+
+  fetch(`/assign/${ticketId}/check/`, {
+    method: 'POST',
+    body: fd,
+    headers: { 'X-Requested-With': 'XMLHttpRequest' }
+  }).then(r => r.json()).then(data => {
+    if (data.ok) {
+      const btn = document.getElementById(`chk-${ticketId}`);
+      if (btn) {
+        btn.classList.add('checked');
+        btn.innerHTML = '<i class="fa fa-check-circle me-1"></i>Checked';
+        btn.disabled = true;
+      }
+    }
+  });
+}
+
+// Close send modal on backdrop click
+document.getElementById('sendModal').addEventListener('click', function(e) {
+  if (e.target === this) closeSend();
+});
+</script>
+{% endblock %}

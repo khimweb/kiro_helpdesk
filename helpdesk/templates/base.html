@@ -102,6 +102,14 @@
   </a>
   {% endif %}
 
+  {% if user.role == 'admin' or user.role == 'manager_it' %}
+  <a class="nav-link {% if 'assign' in request.resolver_match.url_name %}active{% endif %}"
+     href="{% url 'assign_list' %}" title="Assign">
+    <i class="fa fa-tasks"></i>
+    <span class="link-label">Assign</span>
+  </a>
+  {% endif %}
+
   {% if user.role == 'admin' or user.role == 'agent' %}
   <div class="sidebar-section-label">Reports</div>
   <a class="nav-link {% if request.resolver_match.url_name == 'reports' %}active{% endif %}"
@@ -129,8 +137,6 @@
     <span class="link-label">SLA Rules</span>
   </a>
   {% endif %}
-
-</nav>
 
 <!-- ── Sidebar Overlay (mobile) ───────────────────── -->
 <div class="sidebar-overlay" id="sidebarOverlay"></div>
