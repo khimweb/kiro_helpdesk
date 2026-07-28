@@ -95,8 +95,40 @@ class Attachment(models.Model):
     uploaded_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     uploaded_at = models.DateTimeField(auto_now_add=True)
 
+    @property
+    def filename(self):
+        return self.file.name.split('/')[-1]
+
     def __str__(self):
         return f'Attachment for {self.ticket.ticket_id}'
+
+
+class CommentAttachment(models.Model):
+    comment = models.ForeignKey(TicketComment, on_delete=models.CASCADE, related_name='attachments')
+    file = models.FileField(upload_to='comment_attachments/%Y/%m/')
+    uploaded_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    @property
+    def filename(self):
+        return self.file.name.split('/')[-1]
+
+    @property
+    def file_icon(self):
+        ext = self.filename.split('.')[-1].lower()
+        icons = {
+            'pdf': 'fa-file-pdf',
+            'doc': 'fa-file-word', 'docx': 'fa-file-word',
+            'xls': 'fa-file-excel', 'xlsx': 'fa-file-excel',
+            'jpg': 'fa-file-image', 'jpeg': 'fa-file-image', 'png': 'fa-file-image', 'gif': 'fa-file-image',
+            'zip': 'fa-file-archive', 'rar': 'fa-file-archive',
+            'txt': 'fa-file-alt',
+            'exe': 'fa-file-code',
+        }
+        return icons.get(ext, 'fa-file')
+
+    def __str__(self):
+        return f'Attachment for comment {self.comment.id}'
 
     def filename(self):
         import os

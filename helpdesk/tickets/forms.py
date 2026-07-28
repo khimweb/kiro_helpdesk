@@ -28,7 +28,26 @@ class TicketUpdateForm(forms.ModelForm):
         self.fields['description'].widget = forms.Textarea(attrs={'class': 'form-control', 'rows': 5})
 
 
+class MultipleFileInput(forms.FileInput):
+    """Widget that allows selecting multiple files — works on Django 4.x and 6.x."""
+    allow_multiple_selected = True
+
+
+class MultipleFileField(forms.FileField):
+    def __init__(self, *args, **kwargs):
+        kwargs.setdefault('widget', MultipleFileInput(attrs={'class': 'form-control'}))
+        super().__init__(*args, **kwargs)
+
+    def clean(self, data, initial=None):
+        single_file_clean = super().clean
+        if isinstance(data, (list, tuple)):
+            return [single_file_clean(d, initial) for d in data if d]
+        return [single_file_clean(data, initial)] if data else []
+
+
 class TicketCommentForm(forms.ModelForm):
+    attachments = MultipleFileField(required=False)
+
     class Meta:
         model = TicketComment
         fields = ['content', 'is_internal']
@@ -36,7 +55,7 @@ class TicketCommentForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         self.user = kwargs.pop('user', None)
         super().__init__(*args, **kwargs)
-        self.fields['content'].widget = forms.Textarea(attrs={'class': 'form-control', 'rows': 4})
+        self.fields['content'].widget = forms.Textarea(attrs={'class': 'form-control', 'rows': 4, 'placeholder': 'Write your comment here...'})
         # Only show internal option to agents/admins
         if self.user and self.user.role == 'user':
             self.fields.pop('is_internal')

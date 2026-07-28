@@ -168,7 +168,7 @@ def ticket_detail_view(request, ticket_id):
         action = request.POST.get('action')
 
         if action == 'comment':
-            comment_form = TicketCommentForm(request.POST, user=user)
+            comment_form = TicketCommentForm(request.POST, request.FILES, user=user)
             if comment_form.is_valid():
                 comment = comment_form.save(commit=False)
                 comment.ticket = ticket
@@ -176,6 +176,14 @@ def ticket_detail_view(request, ticket_id):
                 if user.is_regular_user:
                     comment.is_internal = False
                 comment.save()
+                # Save attached files
+                from .models import CommentAttachment
+                for f in request.FILES.getlist('attachments'):
+                    CommentAttachment.objects.create(
+                        comment=comment,
+                        file=f,
+                        uploaded_by=user
+                    )
                 log_ticket_history(ticket, user, 'Comment Added', comment.content[:100])
                 send_ticket_notification(ticket, 'comment_added')
                 messages.success(request, 'Comment added.')

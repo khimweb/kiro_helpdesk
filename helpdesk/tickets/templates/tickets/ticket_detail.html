@@ -64,6 +64,15 @@
             <span class="badge bg-warning text-dark small mb-1">Internal Note</span>
           {% endif %}
           <p class="mb-0 mt-1">{{ comment.content }}</p>
+          {% if comment.attachments.all %}
+          <div class="mt-2">
+            {% for att in comment.attachments.all %}
+            <a href="{{ att.file.url }}" target="_blank" class="btn btn-sm btn-outline-primary me-1 mb-1" download>
+              <i class="fa {{ att.file_icon }} me-1"></i>{{ att.filename }}
+            </a>
+            {% endfor %}
+          </div>
+          {% endif %}
         </div>
         {% empty %}
           <p class="text-muted">No comments yet.</p>
@@ -72,10 +81,15 @@
         <!-- Add comment form -->
         <hr>
         <h6 class="fw-semibold">Add Comment</h6>
-        <form method="post">
+        <form method="post" enctype="multipart/form-data">
           {% csrf_token %}
           <input type="hidden" name="action" value="comment">
           <div class="mb-2">{{ comment_form.content }}</div>
+          <div class="mb-2">
+            <label class="form-label fw-semibold"><i class="fa fa-paperclip me-1"></i>Attach Files</label>
+            {{ comment_form.attachments }}
+            <small class="text-muted d-block mt-1">Supports: JPG, PNG, PDF, EXE, DOC, ZIP and all file types</small>
+          </div>
           {% if comment_form.is_internal %}
           <div class="form-check mb-2">
             {{ comment_form.is_internal }}
