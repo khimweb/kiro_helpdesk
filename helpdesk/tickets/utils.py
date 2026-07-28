@@ -89,7 +89,7 @@ def send_ticket_notification(ticket, event):
 def role_required(*roles):
     """
     Decorator factory that restricts a view to users with specific roles.
-    Usage: @role_required('admin') or @role_required('admin', 'agent')
+    Usage: @role_required('admin') or @role_required('admin', 'manager_it', 'it_staff')
     """
     def decorator(view_func):
         @wraps(view_func)

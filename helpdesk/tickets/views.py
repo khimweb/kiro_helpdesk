@@ -26,6 +26,16 @@ def dashboard_view(request):
 
     if user.is_admin:
         tickets_qs = Ticket.objects.all()
+    elif user.role == 'manager_it':
+        from .models import TicketAssignment
+        tickets_qs = Ticket.objects.filter(
+            Q(assignment__assigned_to_manager=user) | Q(status='open')
+        )
+    elif user.role == 'it_staff':
+        from .models import TicketAssignment
+        tickets_qs = Ticket.objects.filter(
+            Q(assignment__assigned_to_it_staff=user) | Q(assigned_to=user)
+        )
     elif user.is_agent:
         tickets_qs = Ticket.objects.filter(
             Q(assigned_to=user) | Q(status='open')
@@ -36,21 +46,32 @@ def dashboard_view(request):
     stats = get_ticket_status_counts(tickets_qs)
     recent_tickets = tickets_qs.select_related('created_by', 'assigned_to', 'category')[:10]
 
-    # SLA breach count (deadline passed, not resolved/closed)
     sla_breached = tickets_qs.filter(
         sla_deadline__lt=timezone.now(),
         status__in=['open', 'in_progress']
     ).count()
 
-    # All users panel (visible to admin/agent)
     from accounts.models import User as UserModel
     all_users = UserModel.objects.all().order_by('username') if user.is_admin or user.is_agent else None
+
+    # For regular users — show their tickets with assignment progress
+    user_ticket_progress = []
+    if user.is_regular_user:
+        from .models import TicketAssignment
+        my_tickets = Ticket.objects.filter(created_by=user).order_by('-created_at')[:10]
+        for t in my_tickets:
+            try:
+                a = t.assignment
+            except Exception:
+                a = None
+            user_ticket_progress.append({'ticket': t, 'assignment': a})
 
     context = {
         'stats': stats,
         'recent_tickets': recent_tickets,
         'sla_breached': sla_breached,
         'all_users': all_users,
+        'user_ticket_progress': user_ticket_progress,
     }
     return render(request, 'tickets/dashboard.html', context)
 
@@ -155,7 +176,7 @@ def ticket_detail_view(request, ticket_id):
         messages.error(request, 'You do not have access to this ticket.')
         return redirect('ticket_list')
 
-    # Filter internal comments for regular users
+    # Comments: ticket owner sees non-internal only; staff see all
     if user.is_regular_user:
         comments = ticket.comments.filter(is_internal=False)
     else:
