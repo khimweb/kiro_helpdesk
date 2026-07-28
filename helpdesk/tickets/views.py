@@ -221,10 +221,20 @@ def ticket_update_view(request, ticket_id):
 
     if request.method == 'POST':
         form = TicketUpdateForm(request.POST, instance=ticket)
+
+        # Handle attachment deletion
+        delete_ids = request.POST.getlist('delete_attachment')
+        if delete_ids:
+            Attachment.objects.filter(id__in=delete_ids, ticket=ticket).delete()
+
+        # Handle new attachment uploads
+        new_files = request.FILES.getlist('new_attachments')
+        for f in new_files:
+            Attachment.objects.create(ticket=ticket, file=f, uploaded_by=user)
+
         if form.is_valid():
             updated = form.save(commit=False)
 
-            # Set timestamps based on status transitions
             if updated.status == 'resolved' and old_status != 'resolved':
                 updated.resolved_at = timezone.now()
             if updated.status == 'closed' and old_status != 'closed':
@@ -232,56 +242,46 @@ def ticket_update_view(request, ticket_id):
 
             updated.save()
 
-            # Log changes
             if old_status != updated.status:
-                log_ticket_history(
-                    ticket, user, 'Status Changed',
-                    f'Status changed from {old_status} to {updated.status}.'
-                )
+                log_ticket_history(ticket, user, 'Status Changed',
+                    f'Status changed from {old_status} to {updated.status}.')
                 send_ticket_notification(ticket, 'status_changed')
-                
-                # Send Telegram notification for status change
-                from .notifications import send_change_alert
-                send_change_alert(
-                    user=user,
-                    action='update',
-                    object_type='ticket',
-                    object_info=f'Ticket #{ticket.ticket_id}: {ticket.title}',
-                    details=f'Status changed from {old_status} to {updated.status}'
-                )
+                try:
+                    from .notifications import send_change_alert
+                    send_change_alert(user=user, action='update', object_type='ticket',
+                        object_info=f'Ticket #{ticket.ticket_id}: {ticket.title}',
+                        details=f'Status changed from {old_status} to {updated.status}')
+                except Exception:
+                    pass
 
             if old_assigned != updated.assigned_to:
                 assignee = updated.assigned_to.username if updated.assigned_to else 'Unassigned'
                 log_ticket_history(ticket, user, 'Assigned', f'Ticket assigned to {assignee}.')
                 if updated.assigned_to:
                     send_ticket_notification(ticket, 'assigned')
-                    
-                # Send Telegram notification for assignment change
-                from .notifications import send_change_alert
-                send_change_alert(
-                    user=user,
-                    action='update',
-                    object_type='ticket',
-                    object_info=f'Ticket #{ticket.ticket_id}: {ticket.title}',
-                    details=f'Assigned to {assignee}'
-                )
-            
-            # Add iOS-style notification data to session
-            request.session['ios_notification'] = {
-                'type': 'success',
-                'title': 'Ticket Updated',
-                'message': f'Ticket #{ticket.ticket_id} updated successfully',
-                'icon': '✅',
-                'auto_hide': True,
-                'duration': 4000
-            }
+                try:
+                    from .notifications import send_change_alert
+                    send_change_alert(user=user, action='update', object_type='ticket',
+                        object_info=f'Ticket #{ticket.ticket_id}: {ticket.title}',
+                        details=f'Assigned to {assignee}')
+                except Exception:
+                    pass
 
+            request.session['ios_notification'] = {
+                'type': 'success', 'title': 'Ticket Updated',
+                'message': f'Ticket #{ticket.ticket_id} updated successfully',
+                'icon': '✅', 'auto_hide': True, 'duration': 4000
+            }
             messages.success(request, 'Ticket updated.')
             return redirect('ticket_detail', ticket_id=ticket_id)
     else:
         form = TicketUpdateForm(instance=ticket)
 
-    return render(request, 'tickets/update_ticket.html', {'form': form, 'ticket': ticket})
+    return render(request, 'tickets/update_ticket.html', {
+        'form': form,
+        'ticket': ticket,
+        'attachments': ticket.attachments.all(),
+    })
 
 
 @login_required
