@@ -834,3 +834,183 @@ a, button, .card, .stat-card, .dropdown-item {
   .main-content { padding-right: 48px; }
   .stat-card .stat-value { font-size: 2.3rem; }
 }
+
+/* ═══════════════════════════════════════════════════
+   SMOOTH LIVING ANIMATIONS — iOS Feel
+   ═══════════════════════════════════════════════════ */
+
+/* Buttons pulse on hover */
+.btn:hover {
+  animation: buttonPulse 0.6s ease-in-out;
+}
+
+@keyframes buttonPulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.03); }
+}
+
+/* Icons spin on hover */
+.stat-card:hover .stat-icon i,
+.card-icon:hover {
+  animation: iconSpin 0.8s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+}
+
+@keyframes iconSpin {
+  0% { transform: rotate(0deg) scale(1); }
+  50% { transform: rotate(180deg) scale(1.15); }
+  100% { transform: rotate(360deg) scale(1); }
+}
+
+/* Sparklines animate on load */
+.sparkline {
+  animation: sparklineGrow 1.2s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
+@keyframes sparklineGrow {
+  from { opacity: 0; transform: scaleY(0); transform-origin: bottom; }
+  to { opacity: 1; transform: scaleY(1); }
+}
+
+/* Progress bars animated fill */
+.progress-bar {
+  animation: progressFill 1.5s ease-out both;
+}
+
+@keyframes progressFill {
+  from { width: 0 !important; opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* Sidebar nav links bounce on hover */
+.sidebar .nav-link:hover {
+  animation: navBounce 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+}
+
+@keyframes navBounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+
+/* Mobile nav items bounce */
+.mob-nav-item:hover {
+  animation: navBounce 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+}
+
+/* Stat value count-up effect */
+.stat-value {
+  animation: countUp 1s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
+@keyframes countUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Table rows slide in */
+.table tbody tr {
+  animation: slideInUp 0.4s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
+.table tbody tr:nth-child(1) { animation-delay: 0.05s; }
+.table tbody tr:nth-child(2) { animation-delay: 0.1s; }
+.table tbody tr:nth-child(3) { animation-delay: 0.15s; }
+.table tbody tr:nth-child(4) { animation-delay: 0.2s; }
+.table tbody tr:nth-child(5) { animation-delay: 0.25s; }
+
+@keyframes slideInUp {
+  from { opacity: 0; transform: translateY(15px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Badges shimmer */
+.badge {
+  position: relative;
+  overflow: hidden;
+}
+
+.badge::before {
+  content: '';
+  position: absolute;
+  top: 0; left: -100%;
+  width: 100%; height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+  animation: badgeShimmer 3s infinite;
+}
+
+@keyframes badgeShimmer {
+  0%, 100% { left: -100%; }
+  50% { left: 100%; }
+}
+
+/* Dropdown menu smooth entrance */
+.dropdown-menu.show {
+  animation: dropdownSlide 0.3s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
+@keyframes dropdownSlide {
+  from { opacity: 0; transform: translateY(-10px) scale(0.95); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* Alert boxes slide in from top */
+.alert {
+  animation: alertSlideIn 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55) both;
+}
+
+@keyframes alertSlideIn {
+  from { opacity: 0; transform: translateY(-20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Form focus glow */
+.form-control:focus,
+.form-select:focus {
+  animation: inputGlow 0.3s ease;
+}
+
+@keyframes inputGlow {
+  0%, 100% { box-shadow: 0 0 0 4px rgba(108,92,231,0.12); }
+  50% { box-shadow: 0 0 0 6px rgba(108,92,231,0.18); }
+}
+
+/* Pagination items bounce */
+.page-item .page-link:hover {
+  animation: pageBounce 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+}
+
+@keyframes pageBounce {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.15); }
+}
+
+/* Avatar pulse on hover */
+.nav-avatar:hover,
+.nav-avatar-initials:hover,
+.user-strip-avatar:hover,
+.user-strip-initials:hover {
+  animation: avatarPulse 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+}
+
+@keyframes avatarPulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.1) rotate(5deg); }
+}
+
+/* Loading shimmer for cards */
+.card.loading-shimmer {
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+/* Smooth page transitions */
+@media (prefers-reduced-motion: no-preference) {
+  * {
+    scroll-behavior: smooth;
+  }
+}
