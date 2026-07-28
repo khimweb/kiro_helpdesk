@@ -133,10 +133,6 @@ class CommentAttachment(models.Model):
     def __str__(self):
         return f'Attachment for comment {self.comment.id}'
 
-    def filename(self):
-        import os
-        return os.path.basename(self.file.name)
-
 
 class TicketHistory(models.Model):
     ticket = models.ForeignKey(Ticket, on_delete=models.CASCADE, related_name='history')
