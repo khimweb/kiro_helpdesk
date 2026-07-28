@@ -862,3 +862,183 @@ Would you like me to help you with any of these specific topics?"""
 def notification_test_view(request):
     """Test page for iOS-style notifications"""
     return render(request, 'tickets/notification_test.html')
+
+
+# ── Assign Workflow ───────────────────────────────────────────────────────────
+
+@login_required
+@role_required('admin', 'manager_it')
+def assign_list_view(request):
+    """Assign page: list all tickets with check + send actions."""
+    from accounts.models import User as UserModel
+    from .models import TicketAssignment
+
+    user = request.user
+
+    if user.is_admin:
+        tickets = Ticket.objects.all().select_related('created_by', 'assigned_to', 'category')
+    else:
+        # Manager IT sees only tickets assigned to them
+        tickets = Ticket.objects.filter(
+            assignment__assigned_to_manager=user
+        ).select_related('created_by', 'assigned_to', 'category')
+
+    # Ensure every ticket has an assignment record
+    for t in tickets:
+        TicketAssignment.objects.get_or_create(ticket=t)
+
+    # Users grouped by role for send popup
+    all_users     = UserModel.objects.filter(role='user').order_by('username')
+    managers      = UserModel.objects.filter(role='manager_it').order_by('username')
+    it_staff_list = UserModel.objects.filter(role='it_staff').order_by('username')
+
+    context = {
+        'tickets': tickets,
+        'all_users': all_users,
+        'managers': managers,
+        'it_staff_list': it_staff_list,
+    }
+    return render(request, 'tickets/assign_list.html', context)
+
+
+@login_required
+@role_required('admin', 'manager_it', 'it_staff')
+def assign_check_view(request, ticket_id):
+    """Mark ticket as checked by current role."""
+    from .models import TicketAssignment
+    ticket = get_object_or_404(Ticket, ticket_id=ticket_id)
+    assignment, _ = TicketAssignment.objects.get_or_create(ticket=ticket)
+    user = request.user
+    now = timezone.now()
+
+    if user.is_admin and not assignment.admin_checked:
+        assignment.admin_checked = True
+        assignment.admin_checked_by = user
+        assignment.admin_checked_at = now
+        assignment.save()
+        log_ticket_history(ticket, user, 'Admin Checked', f'Ticket checked by Admin {user.username}')
+        messages.success(request, f'Ticket {ticket_id} marked as checked.')
+
+    elif user.is_manager_it and not assignment.manager_checked:
+        assignment.manager_checked = True
+        assignment.manager_checked_by = user
+        assignment.manager_checked_at = now
+        assignment.save()
+        log_ticket_history(ticket, user, 'Manager Checked', f'Ticket checked by Manager {user.username}')
+        messages.success(request, f'Ticket {ticket_id} checked by Manager IT.')
+
+    elif user.is_it_staff and not assignment.it_staff_completed:
+        assignment.it_staff_completed = True
+        assignment.it_staff_completed_by = user
+        assignment.it_staff_completed_at = now
+        assignment.save()
+        # Mark ticket resolved
+        ticket.status = 'resolved'
+        ticket.resolved_at = now
+        ticket.save()
+        log_ticket_history(ticket, user, 'Completed', f'Ticket completed by IT Staff {user.username}')
+        messages.success(request, f'Ticket {ticket_id} marked as completed.')
+
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        return JsonResponse({'ok': True, 'stage': assignment.current_stage})
+
+    return redirect('assign_list')
+
+
+@login_required
+@role_required('admin', 'manager_it')
+def assign_send_view(request, ticket_id):
+    """Send ticket to a specific user."""
+    from .models import TicketAssignment
+    from accounts.models import User as UserModel
+
+    ticket = get_object_or_404(Ticket, ticket_id=ticket_id)
+    assignment, _ = TicketAssignment.objects.get_or_create(ticket=ticket)
+    user = request.user
+
+    if request.method == 'POST':
+        recipient_id = request.POST.get('recipient_id')
+        recipient = get_object_or_404(UserModel, pk=recipient_id)
+        now = timezone.now()
+
+        if user.is_admin:
+            if recipient.role == 'manager_it':
+                assignment.assigned_to_manager = recipient
+                assignment.assigned_to_manager_at = now
+                assignment.save()
+                ticket.assigned_to = recipient
+                ticket.status = 'in_progress'
+                ticket.save()
+                log_ticket_history(ticket, user, 'Assigned to Manager',
+                    f'Assigned to Manager IT: {recipient.username}')
+                messages.success(request, f'Ticket sent to Manager IT: {recipient.username}')
+            elif recipient.role == 'it_staff':
+                assignment.assigned_to_it_staff = recipient
+                assignment.assigned_to_it_staff_at = now
+                assignment.save()
+                ticket.assigned_to = recipient
+                ticket.status = 'in_progress'
+                ticket.save()
+                log_ticket_history(ticket, user, 'Assigned to IT Staff',
+                    f'Assigned to IT Staff: {recipient.username}')
+                messages.success(request, f'Ticket sent to IT Staff: {recipient.username}')
+            else:
+                # Sending back to user (notify)
+                log_ticket_history(ticket, user, 'Notified User',
+                    f'Notification sent to: {recipient.username}')
+                messages.success(request, f'Notification sent to: {recipient.username}')
+
+        elif user.is_manager_it:
+            # Manager can only send to IT Staff
+            if recipient.role == 'it_staff':
+                assignment.assigned_to_it_staff = recipient
+                assignment.assigned_to_it_staff_at = now
+                assignment.save()
+                ticket.assigned_to = recipient
+                ticket.status = 'in_progress'
+                ticket.save()
+                log_ticket_history(ticket, user, 'Assigned to IT Staff',
+                    f'Manager assigned to IT Staff: {recipient.username}')
+                messages.success(request, f'Ticket sent to IT Staff: {recipient.username}')
+
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        return JsonResponse({'ok': True})
+
+    return redirect('assign_list')
+
+
+@login_required
+def ticket_assignment_status(request, ticket_id):
+    """JSON endpoint — returns assignment stages for user dashboard."""
+    from .models import TicketAssignment
+    ticket = get_object_or_404(Ticket, ticket_id=ticket_id)
+
+    # Only ticket owner, admin, manager, it_staff can view
+    user = request.user
+    if user.is_regular_user and ticket.created_by != user:
+        return JsonResponse({'error': 'Forbidden'}, status=403)
+
+    try:
+        a = ticket.assignment
+    except TicketAssignment.DoesNotExist:
+        return JsonResponse({'stage': 'pending', 'steps': []})
+
+    steps = [
+        {'label': 'Submitted', 'done': True, 'icon': 'fa-paper-plane', 'color': '#6C5CE7'},
+        {'label': 'Admin Checked', 'done': a.admin_checked,
+         'icon': 'fa-user-shield', 'color': '#0984e3',
+         'by': a.admin_checked_by.username if a.admin_checked_by else None},
+        {'label': 'Sent to Manager', 'done': bool(a.assigned_to_manager),
+         'icon': 'fa-user-tie', 'color': '#6c5ce7',
+         'by': a.assigned_to_manager.username if a.assigned_to_manager else None},
+        {'label': 'Manager Checked', 'done': a.manager_checked,
+         'icon': 'fa-clipboard-check', 'color': '#e67e22',
+         'by': a.manager_checked_by.username if a.manager_checked_by else None},
+        {'label': 'Assigned to IT Staff', 'done': bool(a.assigned_to_it_staff),
+         'icon': 'fa-tools', 'color': '#00b894',
+         'by': a.assigned_to_it_staff.username if a.assigned_to_it_staff else None},
+        {'label': 'Completed', 'done': a.it_staff_completed,
+         'icon': 'fa-check-circle', 'color': '#00b894',
+         'by': a.it_staff_completed_by.username if a.it_staff_completed_by else None},
+    ]
+    return JsonResponse({'stage': a.current_stage, 'steps': steps})

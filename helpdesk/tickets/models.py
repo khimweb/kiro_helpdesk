@@ -146,3 +146,67 @@ class TicketHistory(models.Model):
 
     def __str__(self):
         return f'{self.action} on {self.ticket.ticket_id} by {self.user.username}'
+
+
+class TicketAssignment(models.Model):
+    """Tracks the full assignment workflow: Admin → Manager IT → IT Staff."""
+
+    ticket = models.OneToOneField(Ticket, on_delete=models.CASCADE, related_name='assignment')
+
+    # Admin check
+    admin_checked = models.BooleanField(default=False)
+    admin_checked_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True,
+        on_delete=models.SET_NULL, related_name='admin_checks'
+    )
+    admin_checked_at = models.DateTimeField(null=True, blank=True)
+
+    # Assigned to Manager IT
+    assigned_to_manager = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True,
+        on_delete=models.SET_NULL, related_name='manager_assignments'
+    )
+    assigned_to_manager_at = models.DateTimeField(null=True, blank=True)
+
+    # Manager IT check
+    manager_checked = models.BooleanField(default=False)
+    manager_checked_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True,
+        on_delete=models.SET_NULL, related_name='manager_checks'
+    )
+    manager_checked_at = models.DateTimeField(null=True, blank=True)
+
+    # Assigned to IT Staff
+    assigned_to_it_staff = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True,
+        on_delete=models.SET_NULL, related_name='it_staff_assignments'
+    )
+    assigned_to_it_staff_at = models.DateTimeField(null=True, blank=True)
+
+    # IT Staff completed
+    it_staff_completed = models.BooleanField(default=False)
+    it_staff_completed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True,
+        on_delete=models.SET_NULL, related_name='it_staff_completions'
+    )
+    it_staff_completed_at = models.DateTimeField(null=True, blank=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f'Assignment for {self.ticket.ticket_id}'
+
+    @property
+    def current_stage(self):
+        if self.it_staff_completed:
+            return 'completed'
+        if self.assigned_to_it_staff:
+            return 'it_staff'
+        if self.manager_checked:
+            return 'manager_checked'
+        if self.assigned_to_manager:
+            return 'manager'
+        if self.admin_checked:
+            return 'admin_checked'
+        return 'pending'

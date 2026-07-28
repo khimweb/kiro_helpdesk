@@ -38,6 +38,12 @@ urlpatterns = [
     # Notification Test
     path('notifications-test/', views.notification_test_view, name='notification_test'),
 
+    # Assign workflow
+    path('assign/', views.assign_list_view, name='assign_list'),
+    path('assign/<str:ticket_id>/check/', views.assign_check_view, name='assign_check'),
+    path('assign/<str:ticket_id>/send/', views.assign_send_view, name='assign_send'),
+    path('assign/<str:ticket_id>/status/', views.ticket_assignment_status, name='ticket_assignment_status'),
+
     # REST API
     path('api/tickets/', views.api_ticket_list, name='api_ticket_list'),
     path('api/tickets/<str:ticket_id>/', views.api_ticket_detail, name='api_ticket_detail'),
