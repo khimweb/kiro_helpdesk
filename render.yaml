@@ -13,3 +13,9 @@ services:
         generateValue: true
       - key: PYTHON_VERSION
         value: 3.11.0
+      - key: MEDIA_ROOT
+        value: /opt/render/project/media
+    disk:
+      name: media-files
+      mountPath: /opt/render/project/media
+      sizeGB: 1
