@@ -1,36 +1,204 @@
 {% extends 'base.html' %}
-{% block title %}Update Ticket{% endblock %}
+{% block title %}Update {{ ticket.ticket_id }}{% endblock %}
+
+{% block extra_css %}
+<style>
+.att-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  background: #f8f8ff;
+  border-radius: var(--radius-xs);
+  margin-bottom: 8px;
+  border: 1px solid rgba(108,92,231,0.1);
+  transition: var(--transition);
+}
+.att-item:hover { background: #fff0ef; border-color: var(--danger); }
+.att-item.marked-delete {
+  background: #fff0ef;
+  border-color: var(--danger);
+  opacity: 0.6;
+  text-decoration: line-through;
+}
+.upload-zone {
+  border: 2px dashed rgba(108,92,231,0.3);
+  border-radius: var(--radius-sm);
+  padding: 24px;
+  text-align: center;
+  cursor: pointer;
+  transition: var(--transition);
+  background: var(--primary-ultra-light);
+}
+.upload-zone:hover, .upload-zone.dragover {
+  border-color: var(--primary);
+  background: #e8e4ff;
+}
+.file-preview-list { margin-top: 12px; }
+.file-preview-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  background: #fff;
+  border-radius: var(--radius-xs);
+  margin-bottom: 6px;
+  box-shadow: var(--shadow);
+  animation: fadeUp 0.2s ease;
+}
+</style>
+{% endblock %}
+
 {% block content %}
-<div class="row justify-content-center">
+<div class="page-header">
+  <div>
+    <h4><i class="fa fa-edit me-2" style="color:var(--warning);"></i>Update Ticket</h4>
+    <code style="font-size:.85rem;">{{ ticket.ticket_id }}</code>
+  </div>
+  <a href="{% url 'ticket_detail' ticket.ticket_id %}" class="btn btn-secondary btn-sm">
+    <i class="fa fa-arrow-left me-1"></i>Back
+  </a>
+</div>
+
+<div class="row g-4 justify-content-center">
   <div class="col-lg-8">
-    <div class="card shadow-sm">
-      <div class="card-header bg-white d-flex justify-content-between">
-        <span class="fw-semibold">
-          <i class="fa fa-edit me-2 text-warning"></i>Update Ticket
-        </span>
-        <code>{{ ticket.ticket_id }}</code>
-      </div>
-      <div class="card-body">
-        <form method="post" novalidate>
-          {% csrf_token %}
+
+    <form method="post" enctype="multipart/form-data" novalidate>
+      {% csrf_token %}
+
+      <!-- ── Ticket Fields ─────────────────────── -->
+      <div class="card mb-4">
+        <div class="card-header">
+          <i class="fa fa-ticket-alt me-2" style="color:var(--primary);"></i>Ticket Details
+        </div>
+        <div class="card-body">
           {% for field in form %}
-            <div class="mb-3">
-              <label class="form-label fw-semibold">{{ field.label }}</label>
-              {{ field }}
-              {% if field.errors %}
-                <div class="text-danger small">{{ field.errors.as_text }}</div>
-              {% endif %}
-            </div>
-          {% endfor %}
-          <div class="d-flex gap-2">
-            <button class="btn btn-warning" type="submit">
-              <i class="fa fa-save me-1"></i>Save Changes
-            </button>
-            <a href="{% url 'ticket_detail' ticket.ticket_id %}" class="btn btn-secondary">Cancel</a>
+          <div class="mb-3">
+            <label class="form-label">{{ field.label }}</label>
+            {{ field }}
+            {% if field.errors %}
+            <div class="text-danger mt-1" style="font-size:.82rem;">{{ field.errors.as_text }}</div>
+            {% endif %}
           </div>
-        </form>
+          {% endfor %}
+        </div>
       </div>
-    </div>
+
+      <!-- ── Current Attachments ──────────────── -->
+      {% if attachments %}
+      <div class="card mb-4">
+        <div class="card-header">
+          <i class="fa fa-paperclip me-2" style="color:var(--primary);"></i>
+          Current Attachments
+          <span class="badge ms-2" style="background:var(--primary-ultra-light);color:var(--primary);">{{ attachments|length }}</span>
+        </div>
+        <div class="card-body">
+          <p class="text-muted mb-3" style="font-size:.85rem;">
+            <i class="fa fa-info-circle me-1"></i>Check the box next to a file to delete it when you save.
+          </p>
+          {% for att in attachments %}
+          <div class="att-item" id="att-row-{{ att.id }}">
+            <i class="fa fa-file text-primary" style="font-size:1.1rem;flex-shrink:0;"></i>
+            <a href="{{ att.file.url }}" target="_blank" class="flex-grow-1 text-decoration-none fw-semibold" style="font-size:.88rem;">
+              {{ att.filename }}
+            </a>
+            <small class="text-muted">{{ att.uploaded_at|date:"M d, Y" }}</small>
+            <div class="form-check mb-0">
+              <input class="form-check-input" type="checkbox"
+                     name="delete_attachment" value="{{ att.id }}"
+                     id="del-{{ att.id }}"
+                     onchange="toggleDelete({{ att.id }})">
+              <label class="form-check-label text-danger small fw-semibold" for="del-{{ att.id }}">
+                Delete
+              </label>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+
+      <!-- ── Add New Attachments ──────────────── -->
+      <div class="card mb-4">
+        <div class="card-header">
+          <i class="fa fa-cloud-upload-alt me-2" style="color:var(--success);"></i>Add New Files
+        </div>
+        <div class="card-body">
+          <div class="upload-zone" id="uploadZone" onclick="document.getElementById('newFiles').click()">
+            <i class="fa fa-cloud-upload-alt fa-2x mb-2" style="color:var(--primary-light);"></i>
+            <div class="fw-semibold" style="color:var(--primary);">Click to upload or drag & drop</div>
+            <div class="text-muted mt-1" style="font-size:.82rem;">Supports all file types — JPG, PNG, PDF, EXE, DOC, ZIP...</div>
+          </div>
+          <input type="file" id="newFiles" name="new_attachments" multiple
+                 class="d-none" onchange="showPreviews(this)">
+          <div class="file-preview-list" id="filePreviewList"></div>
+        </div>
+      </div>
+
+      <!-- ── Actions ──────────────────────────── -->
+      <div class="d-flex gap-2">
+        <button class="btn btn-warning flex-fill" type="submit">
+          <i class="fa fa-save me-2"></i>Save Changes
+        </button>
+        <a href="{% url 'ticket_detail' ticket.ticket_id %}" class="btn btn-secondary">
+          Cancel
+        </a>
+      </div>
+
+    </form>
   </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Toggle delete highlight
+function toggleDelete(id) {
+  const row = document.getElementById('att-row-' + id);
+  const cb = document.getElementById('del-' + id);
+  row.classList.toggle('marked-delete', cb.checked);
+}
+
+// File previews
+function showPreviews(input) {
+  const list = document.getElementById('filePreviewList');
+  list.innerHTML = '';
+  const iconMap = {
+    pdf: 'fa-file-pdf', doc: 'fa-file-word', docx: 'fa-file-word',
+    xls: 'fa-file-excel', xlsx: 'fa-file-excel',
+    jpg: 'fa-file-image', jpeg: 'fa-file-image', png: 'fa-file-image',
+    gif: 'fa-file-image', zip: 'fa-file-archive', rar: 'fa-file-archive',
+    txt: 'fa-file-alt', exe: 'fa-file-code',
+  };
+  Array.from(input.files).forEach(file => {
+    const ext = file.name.split('.').pop().toLowerCase();
+    const icon = iconMap[ext] || 'fa-file';
+    const size = file.size > 1024*1024
+      ? (file.size/1024/1024).toFixed(1) + ' MB'
+      : (file.size/1024).toFixed(0) + ' KB';
+    const item = document.createElement('div');
+    item.className = 'file-preview-item';
+    item.innerHTML = `
+      <i class="fa ${icon} text-primary"></i>
+      <span class="flex-grow-1 fw-semibold" style="font-size:.88rem;">${file.name}</span>
+      <small class="text-muted">${size}</small>
+    `;
+    list.appendChild(item);
+  });
+}
+
+// Drag & drop
+const zone = document.getElementById('uploadZone');
+const input = document.getElementById('newFiles');
+zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('dragover'); });
+zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
+zone.addEventListener('drop', e => {
+  e.preventDefault();
+  zone.classList.remove('dragover');
+  const dt = new DataTransfer();
+  Array.from(e.dataTransfer.files).forEach(f => dt.items.add(f));
+  input.files = dt.files;
+  showPreviews(input);
+});
+</script>
 {% endblock %}
