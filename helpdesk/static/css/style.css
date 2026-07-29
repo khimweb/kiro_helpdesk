@@ -167,6 +167,33 @@ body {
   box-shadow: 0 4px 16px rgba(0,0,0,0.12);
 }
 
+.sidebar .nav-link.active i { color: var(--primary) !important; }
+
+/* Smooth active indicator */
+.sidebar .nav-link {
+  position: relative;
+}
+
+.sidebar .nav-link::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%) scaleY(0);
+  width: 3px;
+  height: 60%;
+  background: #fff;
+  border-radius: 0 3px 3px 0;
+  transition: transform 0.25s cubic-bezier(0.4,0,0.2,1);
+}
+
+.sidebar .nav-link.active::before {
+  transform: translateY(-50%) scaleY(1);
+  background: var(--primary);
+}
+
+.sidebar.expanded .nav-link::before { display: none; }
+
 .sidebar-section-label {
   display: none;
   font-size: 0.62rem;
@@ -881,14 +908,11 @@ a, button, .card, .stat-card, .dropdown-item {
   to { opacity: 1; }
 }
 
-/* Sidebar nav links bounce on hover */
+/* Sidebar nav links smooth hover — no bounce, just glow */
 .sidebar .nav-link:hover {
-  animation: navBounce 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
-}
-
-@keyframes navBounce {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-4px); }
+  background: rgba(255,255,255,0.18) !important;
+  color: #fff !important;
+  transform: translateX(2px);
 }
 
 /* Mobile nav items bounce */

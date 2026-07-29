@@ -82,6 +82,21 @@ document.addEventListener('DOMContentLoaded', function () {
     }, { passive: true });
   });
 
+  // ── Smooth sidebar nav click ────────────────────────────
+  document.querySelectorAll('.sidebar .nav-link').forEach(link => {
+    link.addEventListener('click', function() {
+      // Remove active from all
+      document.querySelectorAll('.sidebar .nav-link').forEach(l => l.classList.remove('active'));
+      // Add to clicked
+      this.classList.add('active');
+      // Spring scale animation
+      this.style.transform = 'scale(0.94)';
+      setTimeout(() => {
+        this.style.transform = '';
+      }, 150);
+    });
+  });
+
   // ── Auto-dismiss alerts (iOS slide out) ─────────────────
   document.querySelectorAll('.alert').forEach(function (el) {
     setTimeout(function () {
