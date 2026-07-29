@@ -35,8 +35,12 @@
         <div class="mt-2">
           {% if target_user.role == 'admin' %}
             <span class="badge" style="background:var(--primary-ultra-light);color:var(--primary);">Admin</span>
+          {% elif target_user.role == 'manager_it' %}
+            <span class="badge" style="background:#e8f4ff;color:#0984e3;">Manager IT</span>
+          {% elif target_user.role == 'it_staff' %}
+            <span class="badge" style="background:#e8f8f0;color:var(--success);">IT Staff</span>
           {% elif target_user.role == 'agent' %}
-            <span class="badge" style="background:#e8f8f0;color:var(--success);">Agent</span>
+            <span class="badge" style="background:#fff8e1;color:#e67e22;">Agent</span>
           {% else %}
             <span class="badge" style="background:#f0f0f0;color:#636e72;">User</span>
           {% endif %}

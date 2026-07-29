@@ -1,0 +1,108 @@
+{% extends 'base.html' %}
+{% block title %}Create User{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h4><i class="fa fa-user-plus me-2" style="color:var(--success);"></i>Create New User</h4>
+  <a href="{% url 'user_list' %}" class="btn btn-secondary btn-sm">
+    <i class="fa fa-arrow-left me-1"></i>Back
+  </a>
+</div>
+
+<div class="row justify-content-center">
+  <div class="col-lg-8">
+    <div class="card">
+      <div class="card-header">
+        <i class="fa fa-id-card me-2" style="color:var(--primary);"></i>Account Information
+      </div>
+      <div class="card-body">
+        <form method="post" novalidate>
+          {% csrf_token %}
+          <div class="row g-3">
+
+            <div class="col-md-6">
+              <label class="form-label">Username <span class="text-danger">*</span></label>
+              {{ form.username }}
+              {% if form.username.errors %}
+                <div style="font-size:.78rem;color:var(--danger);margin-top:4px;">{{ form.username.errors.as_text }}</div>
+              {% endif %}
+            </div>
+
+            <div class="col-md-6">
+              <label class="form-label">Email</label>
+              {{ form.email }}
+              {% if form.email.errors %}
+                <div style="font-size:.78rem;color:var(--danger);margin-top:4px;">{{ form.email.errors.as_text }}</div>
+              {% endif %}
+            </div>
+
+            <div class="col-md-6">
+              <label class="form-label">First Name</label>
+              {{ form.first_name }}
+            </div>
+
+            <div class="col-md-6">
+              <label class="form-label">Last Name</label>
+              {{ form.last_name }}
+            </div>
+
+            <div class="col-md-6">
+              <label class="form-label">Password <span class="text-danger">*</span></label>
+              {{ form.password1 }}
+              {% if form.password1.errors %}
+                <div style="font-size:.78rem;color:var(--danger);margin-top:4px;">{{ form.password1.errors.as_text }}</div>
+              {% endif %}
+            </div>
+
+            <div class="col-md-6">
+              <label class="form-label">Confirm Password <span class="text-danger">*</span></label>
+              {{ form.password2 }}
+              {% if form.password2.errors %}
+                <div style="font-size:.78rem;color:var(--danger);margin-top:4px;">{{ form.password2.errors.as_text }}</div>
+              {% endif %}
+            </div>
+
+            <div class="col-md-6">
+              <label class="form-label">Role <span class="text-danger">*</span></label>
+              {{ form.role }}
+              <small class="text-muted d-block mt-1">
+                Admin · Manager IT · IT Staff · Agent · User
+              </small>
+            </div>
+
+            <div class="col-md-6">
+              <label class="form-label">Department</label>
+              {{ form.department }}
+            </div>
+
+            <div class="col-md-6">
+              <label class="form-label">Phone</label>
+              {{ form.phone }}
+            </div>
+
+            <div class="col-md-6 d-flex align-items-center gap-2 mt-3">
+              <div class="form-check form-switch">
+                {{ form.is_active }}
+                <label class="form-check-label fw-semibold" for="{{ form.is_active.id_for_label }}">
+                  Active Account
+                </label>
+              </div>
+            </div>
+
+          </div>
+
+          <hr class="my-4" style="opacity:.08;">
+
+          <div class="d-flex gap-2">
+            <button class="btn btn-success" type="submit">
+              <i class="fa fa-user-plus me-2"></i>Create User
+            </button>
+            <a href="{% url 'user_list' %}" class="btn btn-secondary">Cancel</a>
+          </div>
+
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

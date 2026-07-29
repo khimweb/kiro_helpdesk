@@ -48,3 +48,51 @@ class UserUpdateForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         for field in self.fields.values():
             field.widget.attrs['class'] = 'form-control'
+        # Show all roles in the select
+        self.fields['role'].widget = forms.Select(
+            choices=User.ROLE_CHOICES,
+            attrs={'class': 'form-select'}
+        )
+
+
+class AdminUserCreateForm(forms.ModelForm):
+    """Admin form to create a new user with any role and set password."""
+    password1 = forms.CharField(
+        label='Password',
+        widget=forms.PasswordInput(attrs={'class': 'form-control', 'autocomplete': 'new-password'}),
+    )
+    password2 = forms.CharField(
+        label='Confirm Password',
+        widget=forms.PasswordInput(attrs={'class': 'form-control', 'autocomplete': 'new-password'}),
+    )
+
+    class Meta:
+        model = User
+        fields = ['username', 'first_name', 'last_name', 'email',
+                  'role', 'phone', 'department', 'is_active']
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for name, field in self.fields.items():
+            if name not in ('password1', 'password2'):
+                field.widget.attrs['class'] = 'form-control'
+        self.fields['role'].widget = forms.Select(
+            choices=User.ROLE_CHOICES,
+            attrs={'class': 'form-select'}
+        )
+        self.fields['is_active'].initial = True
+
+    def clean(self):
+        cleaned = super().clean()
+        p1 = cleaned.get('password1')
+        p2 = cleaned.get('password2')
+        if p1 and p2 and p1 != p2:
+            self.add_error('password2', 'Passwords do not match.')
+        return cleaned
+
+    def save(self, commit=True):
+        user = super().save(commit=False)
+        user.set_password(self.cleaned_data['password1'])
+        if commit:
+            user.save()
+        return user

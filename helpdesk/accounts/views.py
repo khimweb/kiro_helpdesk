@@ -4,7 +4,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.core.paginator import Paginator
 
-from .forms import UserRegisterForm, LoginForm, ProfileUpdateForm, UserUpdateForm
+from .forms import UserRegisterForm, LoginForm, ProfileUpdateForm, UserUpdateForm, AdminUserCreateForm
 from .models import User
 from tickets.utils import role_required
 
@@ -218,6 +218,27 @@ def user_list_view(request):
     paginator = Paginator(users, 20)
     page = paginator.get_page(request.GET.get('page'))
     return render(request, 'accounts/user_list.html', {'page_obj': page})
+
+
+@login_required
+@role_required('admin')
+def user_create_view(request):
+    """Admin creates a new user with any role."""
+    if request.method == 'POST':
+        form = AdminUserCreateForm(request.POST)
+        if form.is_valid():
+            user = form.save()
+            request.session['ios_notification'] = {
+                'type': 'success',
+                'title': 'User Created',
+                'message': f'User "{user.username}" ({user.get_role_display()}) created.',
+                'icon': '✅', 'auto_hide': True, 'duration': 4000
+            }
+            messages.success(request, f'User "{user.username}" created successfully.')
+            return redirect('user_list')
+    else:
+        form = AdminUserCreateForm()
+    return render(request, 'accounts/user_create.html', {'form': form})
 
 
 @login_required
