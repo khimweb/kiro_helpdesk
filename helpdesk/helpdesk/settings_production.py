@@ -63,6 +63,12 @@ MIDDLEWARE = [
 ]
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedStaticFilesStorage'
 
+# Uploaded media must use external storage on Render: its local filesystem is
+# erased whenever a free service restarts or redeploys.
+if os.getenv('CLOUDINARY_URL'):
+    INSTALLED_APPS += ['cloudinary', 'cloudinary_storage']
+    DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
+
 # Security settings for production
 if not DEBUG:
     # NOTE: Render handles SSL termination — do NOT set SECURE_SSL_REDIRECT
