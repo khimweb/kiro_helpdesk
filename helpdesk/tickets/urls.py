@@ -34,6 +34,11 @@ urlpatterns = [
 
     # AI Chat
     path('ai-chat/', views.ai_chat_view, name='ai_chat'),
+    path('ai-chat/send/', views.ai_chat_send_view, name='ai_chat_send'),
+    path('ai-chat/sessions/', views.ai_chat_sessions_view, name='ai_chat_sessions'),
+    path('ai-chat/sessions/new/', views.ai_chat_new_view, name='ai_chat_new'),
+    path('ai-chat/sessions/<int:session_id>/', views.ai_chat_session_detail_view, name='ai_chat_session_detail'),
+    path('ai-chat/sessions/<int:session_id>/delete/', views.ai_chat_delete_session_view, name='ai_chat_delete'),
 
     # Notification Test
     path('notifications-test/', views.notification_test_view, name='notification_test'),

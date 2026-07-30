@@ -130,3 +130,8 @@ LOGIN_REDIRECT_URL = '/dashboard/'
 LOGOUT_REDIRECT_URL = '/login/'
 
 CRISPY_ALLOWED_TEMPLATE_PACKS = 'bootstrap5'
+
+# OpenAI / AI assistant (server-side only — never expose in templates/JS)
+OPENAI_API_KEY = os.getenv('OPENAI_API_KEY', '')
+OPENAI_MODEL = os.getenv('OPENAI_MODEL', 'gpt-4o-mini')
+OPENAI_API_BASE = os.getenv('OPENAI_API_BASE', 'https://api.openai.com/v1')

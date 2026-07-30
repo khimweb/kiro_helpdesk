@@ -1,5 +1,8 @@
 from django.contrib import admin
-from .models import Ticket, TicketComment, Attachment, Category, SLA, TicketHistory
+from .models import (
+    Ticket, TicketComment, Attachment, Category, SLA, TicketHistory,
+    AIChatSession, AIChatMessage,
+)
 
 
 @admin.register(Ticket)
@@ -27,3 +30,17 @@ class TicketCommentAdmin(admin.ModelAdmin):
 
 admin.site.register(Attachment)
 admin.site.register(TicketHistory)
+
+
+@admin.register(AIChatSession)
+class AIChatSessionAdmin(admin.ModelAdmin):
+    list_display = ['id', 'title', 'user', 'updated_at', 'created_at']
+    list_filter = ['updated_at']
+    search_fields = ['title', 'user__username']
+
+
+@admin.register(AIChatMessage)
+class AIChatMessageAdmin(admin.ModelAdmin):
+    list_display = ['id', 'session', 'role', 'created_at']
+    list_filter = ['role', 'created_at']
+    search_fields = ['content']

@@ -210,3 +210,50 @@ class TicketAssignment(models.Model):
         if self.admin_checked:
             return 'admin_checked'
         return 'pending'
+
+
+class AIChatSession(models.Model):
+    """A multi-turn AI chat conversation for one user."""
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='ai_chat_sessions'
+    )
+    title = models.CharField(max_length=200, blank=True, default='New Chat')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-updated_at']
+
+    def __str__(self):
+        return f'{self.title} ({self.user.username})'
+
+    def auto_title_from_message(self, message: str, max_len: int = 60):
+        text = (message or '').strip().replace('\n', ' ')
+        if not text:
+            return
+        self.title = text[:max_len] + ('…' if len(text) > max_len else '')
+        self.save(update_fields=['title', 'updated_at'])
+
+
+class AIChatMessage(models.Model):
+    """Single message in an AI chat session."""
+
+    ROLE_CHOICES = [
+        ('user', 'User'),
+        ('assistant', 'Assistant'),
+        ('system', 'System'),
+    ]
+
+    session = models.ForeignKey(
+        AIChatSession, on_delete=models.CASCADE, related_name='messages'
+    )
+    role = models.CharField(max_length=20, choices=ROLE_CHOICES)
+    content = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['created_at']
+
+    def __str__(self):
+        return f'{self.role}: {self.content[:50]}'

@@ -6,7 +6,10 @@ from django.db.models import Q, Count, Avg
 from django.utils import timezone
 from django.http import JsonResponse
 
-from .models import Ticket, TicketComment, Attachment, Category, SLA, TicketHistory
+from .models import (
+    Ticket, TicketComment, Attachment, Category, SLA, TicketHistory,
+    AIChatSession, AIChatMessage,
+)
 from .forms import (
     TicketCreateForm, TicketUpdateForm, TicketCommentForm,
     TicketRatingForm, CategoryForm, SLAForm, TicketSearchForm,
@@ -16,6 +19,7 @@ from .utils import (
     log_ticket_history, get_ticket_status_counts,
     send_ticket_notification, role_required,
 )
+from .ai_service import call_openai, is_openai_configured
 
 
 # ── Dashboard ─────────────────────────────────────────────────────────────────
@@ -710,173 +714,156 @@ def api_ticket_comments(request, ticket_id):
         return Response(serializer.errors, status=drf_status.HTTP_400_BAD_REQUEST)
 # ── AI Chat ──────────────────────────────────────────────────────────────────
 
+def _session_to_dict(session):
+    return {
+        'id': session.id,
+        'title': session.title or 'New Chat',
+        'updated_at': session.updated_at.isoformat(),
+        'created_at': session.created_at.isoformat(),
+    }
+
+
+def _message_to_dict(message):
+    return {
+        'id': message.id,
+        'role': message.role,
+        'content': message.content,
+        'created_at': message.created_at.isoformat(),
+    }
+
+
 @login_required
 def ai_chat_view(request):
-    """AI Q&A chat interface using ChatGPT-like functionality"""
-    
-    # Get user question from POST request
-    user_message = ""
-    ai_response = ""
-    
-    if request.method == 'POST':
-        user_message = request.POST.get('message', '').strip()
-        
-        if user_message:
-            # Simple keyword-based response system (for demo)
-            user_message_lower = user_message.lower()
-            
-            if any(word in user_message_lower for word in ['write', 'description', 'how to describe']):
-                ai_response = """**How to Write a Good Ticket Description:**
+    """AI Q&A page with chat history and multi-language OpenAI support."""
+    sessions = AIChatSession.objects.filter(user=request.user)[:50]
+    session_id = request.GET.get('session')
+    active_session = None
+    messages_qs = []
 
-1. **Clear Title:** Summarize the issue in one line
-   Example: "Cannot login to CRM system" instead of "Login problem"
+    if session_id:
+        active_session = AIChatSession.objects.filter(
+            id=session_id, user=request.user
+        ).first()
+        if active_session:
+            messages_qs = active_session.messages.exclude(role='system')
 
-2. **Detailed Description:**
-   - What happened? (Specific error messages)
-   - When did it start? (Date and time)
-   - How often does it occur? (Every time, sometimes, etc.)
-   - Steps to reproduce (if applicable)
-
-3. **Environment Details:**
-   - Software/Application name and version
-   - Operating system and version
-   - Browser/Device information
-   - Network location (office, home, etc.)
-
-4. **Impact Assessment:**
-   - How many users are affected?
-   - Is this blocking critical work?
-   - Urgency level
-
-5. **What You've Tried:**
-   - Troubleshooting steps attempted
-   - Any workarounds found
-   - Previous solutions that worked/didn't work
-
-**Example Template:**
-"[Brief summary of issue] started occurring on [date] at [time]. When I try to [action], I see [error message]. This happens [frequency]. I've tried [solution attempts] but the issue persists. This is affecting [number] users and [impact description]."""
-            elif any(word in user_message_lower for word in ['priority', 'urgent', 'important']):
-                ai_response = """**How to Set Ticket Priority:**
-
-**Critical (Response within 1 hour):**
-- System-wide outage affecting all users
-- Security breach or data loss
-- Production system completely down
-- Critical business operations halted
-
-**High (Response within 4 hours):**
-- Multiple users affected
-- Major feature not working
-- Significant performance degradation
-- Important deadline at risk
-
-**Medium (Response within 1 business day):**
-- Single user affected
-- Minor feature issue
-- Non-critical bug
-- General question or request
-
-**Low (Response within 3 business days):**
-- Enhancement requests
-- Cosmetic issues
-- Documentation updates
-- Future improvements"""
-            elif any(word in user_message_lower for word in ['attach', 'file', 'screenshot']):
-                ai_response = """**Best Practices for Attachments:**
-
-**What to Include:**
-1. **Screenshots:** Capture the entire screen, not just the error
-2. **Error Logs:** Copy-paste full error messages
-3. **System Logs:** Event Viewer logs, application logs
-4. **Configuration Files:** Relevant configs (redact sensitive info)
-5. **Network Traces:** For connectivity issues
-
-**Format Guidelines:**
-- Images: PNG or JPG format
-- Logs: TXT format
-- Documents: PDF when possible
-- Maximum file size: 10MB each
-
-**Screenshot Tips:**
-1. Include the URL in the address bar
-2. Show the complete error message
-3. Include any error codes or reference numbers
-4. Use annotation tools to highlight important areas"""
-            elif any(word in user_message_lower for word in ['contact', 'phone', 'email', 'support']):
-                ai_response = """**Contact Information:**
-
-**IT Support Team:**
-- **Phone:** (123) 456-7890 (Mon-Fri, 9AM-6PM)
-- **Email:** support@helpdesk.com
-- **Emergency:** (123) 456-7891 (After hours)
-
-**Department Contacts:**
-- **Network Team:** network@helpdesk.com
-- **Software Team:** software@helpdesk.com
-- **Hardware Team:** hardware@helpdesk.com
-- **Security Team:** security@helpdesk.com
-
-**Response Time SLAs:**
-- Critical: 1 hour
-- High: 4 hours  
-- Medium: 1 business day
-- Low: 3 business days
-
-**Self-Service Options:**
-1. Knowledge Base: https://kb.helpdesk.com
-2. FAQ: https://helpdesk.com/faq
-3. Video Tutorials: https://helpdesk.com/tutorials"""
-            elif any(word in user_message_lower for word in ['help', 'hello', 'hi', 'start']):
-                ai_response = """**Welcome to HelpDesk AI Assistant!**
-
-I'm here to help you with:
-- **Ticket Creation:** Guidance on writing effective tickets
-- **Troubleshooting:** Common IT issue solutions
-- **Best Practices:** HelpDesk usage guidelines
-- **Technical Questions:** General IT queries
-
-**How to use me effectively:**
-1. Be specific about your problem or question
-2. Include relevant details (error messages, software versions, etc.)
-3. Ask one question at a time for clearer responses
-4. Use the suggestion buttons for common queries
-
-**Examples of good questions:**
-- "How do I describe a network connectivity issue?"
-- "What should I include in a software bug report?"
-- "How to set the right priority for my ticket?"
-- "Best way to attach files to a ticket?"""
-            else:
-                ai_response = f"""**AI Response:**
-
-I understand you're asking about: "{user_message}"
-
-Here are some suggestions that might help:
-
-**For ticket-related questions:**
-- Ask "How to write a good ticket description?"
-- Ask "How to set the right priority?"
-- Ask "What files should I attach?"
-
-**For general help:**
-- Ask "How do I contact support?"
-- Ask "What are the response times?"
-- Ask "Where can I find self-help resources?"
-
-**To get the best help:**
-1. Be specific about your issue
-2. Include error messages if available
-3. Mention what you've already tried
-4. Specify the software/system involved
-
-Would you like me to help you with any of these specific topics?"""
-    
     context = {
-        'user_message': user_message,
-        'ai_response': ai_response,
+        'sessions': sessions,
+        'active_session': active_session,
+        'chat_messages': messages_qs,
+        'openai_configured': is_openai_configured(),
     }
-    
     return render(request, 'tickets/ai_chat.html', context)
+
+
+@login_required
+def ai_chat_send_view(request):
+    """AJAX: send a user message and get an AI reply (multi-turn, multi-language)."""
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Method not allowed'}, status=405)
+
+    import json
+    try:
+        if request.content_type and 'application/json' in request.content_type:
+            data = json.loads(request.body.decode('utf-8') or '{}')
+        else:
+            data = request.POST
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        return JsonResponse({'error': 'Invalid request body'}, status=400)
+
+    user_message = (data.get('message') or '').strip()
+    session_id = data.get('session_id') or data.get('session')
+
+    if not user_message:
+        return JsonResponse({'error': 'Please enter a message.'}, status=400)
+    if len(user_message) > 8000:
+        return JsonResponse({'error': 'Message is too long (max 8000 characters).'}, status=400)
+
+    session = None
+    if session_id:
+        session = AIChatSession.objects.filter(id=session_id, user=request.user).first()
+        if not session:
+            return JsonResponse({'error': 'Chat session not found.'}, status=404)
+
+    if not session:
+        session = AIChatSession.objects.create(user=request.user, title='New Chat')
+
+    is_first = not session.messages.filter(role='user').exists()
+    user_msg = AIChatMessage.objects.create(
+        session=session, role='user', content=user_message
+    )
+    if is_first:
+        session.auto_title_from_message(user_message)
+
+    history = list(
+        session.messages.exclude(pk=user_msg.pk)
+        .exclude(role='system')
+        .order_by('created_at')
+        .values('role', 'content')
+    )
+    # Cap context to last 20 turns for cost/latency
+    history = history[-40:]
+
+    assistant_text, error = call_openai(history, user_message)
+    if error:
+        # Keep user message; surface error as assistant-side failure without fake answer
+        session.save(update_fields=['updated_at'])
+        return JsonResponse({
+            'error': error,
+            'session': _session_to_dict(session),
+            'user_message': _message_to_dict(user_msg),
+            'openai_configured': is_openai_configured(),
+        }, status=502)
+
+    assistant_msg = AIChatMessage.objects.create(
+        session=session, role='assistant', content=assistant_text
+    )
+    session.save(update_fields=['updated_at'])
+
+    return JsonResponse({
+        'session': _session_to_dict(session),
+        'user_message': _message_to_dict(user_msg),
+        'assistant_message': _message_to_dict(assistant_msg),
+        'openai_configured': is_openai_configured(),
+    })
+
+
+@login_required
+def ai_chat_sessions_view(request):
+    """AJAX: list chat history for the current user."""
+    sessions = AIChatSession.objects.filter(user=request.user)[:50]
+    return JsonResponse({
+        'sessions': [_session_to_dict(s) for s in sessions],
+    })
+
+
+@login_required
+def ai_chat_session_detail_view(request, session_id):
+    """AJAX: load messages for one chat session."""
+    session = get_object_or_404(AIChatSession, id=session_id, user=request.user)
+    messages_qs = session.messages.exclude(role='system')
+    return JsonResponse({
+        'session': _session_to_dict(session),
+        'messages': [_message_to_dict(m) for m in messages_qs],
+    })
+
+
+@login_required
+def ai_chat_new_view(request):
+    """AJAX or redirect: start a blank chat (session is created on first message)."""
+    if request.method == 'POST' or request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        return JsonResponse({'session': None, 'messages': []})
+    return redirect('ai_chat')
+
+
+@login_required
+def ai_chat_delete_session_view(request, session_id):
+    """AJAX: delete a chat from history."""
+    if request.method not in ('POST', 'DELETE'):
+        return JsonResponse({'error': 'Method not allowed'}, status=405)
+    session = get_object_or_404(AIChatSession, id=session_id, user=request.user)
+    session.delete()
+    return JsonResponse({'ok': True, 'deleted_id': session_id})
 # ── Notification Test ────────────────────────────────────────────────────────
 
 @login_required
