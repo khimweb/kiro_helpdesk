@@ -191,9 +191,6 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   });
 
-});
-
-
   // ── Living progress bars (animate width) ────────────────
   document.querySelectorAll('.progress-bar').forEach(bar => {
     const targetWidth = bar.style.width;
