@@ -1114,10 +1114,26 @@
             }
         });
         const del = item.querySelector('[data-delete-id]');
+
         if (del) {
+            let deleteClicked = false;
             del.addEventListener('click', function (e) {
                 e.stopPropagation();
-                deleteSession(del.getAttribute('data-delete-id'));
+                if (!deleteClicked) {
+                    // First click — show trash icon in red as warning
+                    deleteClicked = true;
+                    del.style.background = 'rgba(214,48,49,0.15)';
+                    del.style.color = '#d63031';
+                    del.title = 'Click again to confirm delete';
+                    setTimeout(() => {
+                        deleteClicked = false;
+                        del.style.background = '';
+                        del.style.color = '';
+                        del.title = 'Delete chat';
+                    }, 2500);
+                } else {
+                    deleteSession(del.getAttribute('data-delete-id'));
+                }
             });
         }
     }
@@ -1155,7 +1171,15 @@
 
     async function deleteSession(id) {
         if (!id) return;
-        if (!window.confirm('Delete this chat from history?')) return;
+        // Find the item and show inline confirm instead of browser dialog
+        const item = historyList.querySelector('[data-session-id="' + id + '"]');
+        if (!item) return;
+
+        // Flash red to confirm
+        item.style.transition = 'background 0.2s';
+        item.style.background = 'rgba(214,48,49,0.1)';
+        item.style.borderColor = '#d63031';
+
         try {
             const res = await fetch(deleteUrl(id), {
                 method: 'POST',
@@ -1165,9 +1189,12 @@
                 },
                 credentials: 'same-origin'
             });
-            if (!res.ok) throw new Error('Delete failed');
-            const item = historyList.querySelector('[data-session-id="' + id + '"]');
-            if (item) item.remove();
+            if (!res.ok) throw new Error('Delete failed ' + res.status);
+            // Animate out
+            item.style.transition = 'all 0.3s cubic-bezier(0.4,0,0.2,1)';
+            item.style.opacity = '0';
+            item.style.transform = 'translateX(-20px)';
+            setTimeout(() => item.remove(), 300);
             if (String(currentSessionId) === String(id)) {
                 startNewChat(false);
             }

@@ -27,8 +27,7 @@ RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
 USER appuser
 
 # Run migrations then start server
-CMD mkdir -p ${MEDIA_ROOT:-/app/media} && \
-    python manage.py migrate --noinput && \
-    python bootstrap_admin.py && \
+CMD python manage.py migrate --noinput && \
     python manage.py collectstatic --noinput && \
+    python manage.py create_default_admin && \
     gunicorn helpdesk.wsgi:application --bind 0.0.0.0:$PORT --workers 2 --timeout 120

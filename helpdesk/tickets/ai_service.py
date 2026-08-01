@@ -98,7 +98,15 @@ def call_openai(
             'Check OPENAI_API_KEY on Render and regenerate the key if needed.'
         )
     if response.status_code == 429:
-        return None, 'AI rate limit reached. Please wait a moment and try again.'
+        # Retry once after a short wait
+        import time
+        time.sleep(3)
+        try:
+            response = requests.post(url, json=payload, headers=headers, timeout=timeout)
+            if response.status_code == 429:
+                return None, 'AI is busy right now. Please wait 10 seconds and try again.'
+        except Exception:
+            return None, 'AI rate limit reached. Please try again in a moment.'
     if response.status_code >= 400:
         try:
             detail = response.json()
