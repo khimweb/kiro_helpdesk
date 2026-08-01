@@ -859,10 +859,10 @@
     const charCount = document.getElementById('charCount');
 
     function detailUrl(id) {
-        return detailUrlTemplate.replace(/\/0\/?$/, '/' + id + '/');
+        return detailUrlTemplate.replace('/0/', '/' + id + '/');
     }
     function deleteUrl(id) {
-        return deleteUrlTemplate.replace(/\/0\/?$/, '/' + id + '/');
+        return deleteUrlTemplate.replace('/0/', '/' + id + '/');
     }
 
     function showError(msg) {
