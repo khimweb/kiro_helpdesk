@@ -100,6 +100,16 @@ class Attachment(models.Model):
         import os
         return os.path.basename(self.file.name)
 
+    @property
+    def raw_url(self):
+        """Return correct URL - fixes Cloudinary image/upload → raw/upload for non-image files."""
+        url = self.file.url
+        ext = self.filename.rsplit('.', 1)[-1].lower() if '.' in self.filename else ''
+        image_exts = {'jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg', 'ico'}
+        if ext not in image_exts:
+            url = url.replace('/image/upload/', '/raw/upload/')
+        return url
+
     def __str__(self):
         return f'Attachment for {self.ticket.ticket_id}'
 
@@ -114,6 +124,17 @@ class CommentAttachment(models.Model):
     def filename(self):
         import os
         return os.path.basename(self.file.name)
+
+    @property
+    def raw_url(self):
+        """Return correct URL - fixes Cloudinary image/upload → raw/upload for non-image files."""
+        url = self.file.url
+        ext = self.filename.rsplit('.', 1)[-1].lower() if '.' in self.filename else ''
+        image_exts = {'jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg', 'ico'}
+        if ext not in image_exts:
+            # Cloudinary serves non-images correctly only via /raw/upload/
+            url = url.replace('/image/upload/', '/raw/upload/')
+        return url
 
     @property
     def file_icon(self):

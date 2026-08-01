@@ -99,7 +99,7 @@
           {% for att in attachments %}
           <div class="att-item" id="att-row-{{ att.id }}">
             <i class="fa fa-file text-primary" style="font-size:1.1rem;flex-shrink:0;"></i>
-            <a href="{{ att.file.url }}" target="_blank" class="flex-grow-1 text-decoration-none fw-semibold" style="font-size:.88rem;">
+            <a href="{{ att.raw_url }}" target="_blank" class="flex-grow-1 text-decoration-none fw-semibold" style="font-size:.88rem;">
               {{ att.filename }}
             </a>
             <small class="text-muted">{{ att.uploaded_at|date:"M d, Y" }}</small>

@@ -36,7 +36,7 @@
           <ul class="list-unstyled">
             {% for att in attachments %}
             <li>
-              <a href="{{ att.file.url }}" target="_blank">
+              <a href="{{ att.raw_url }}" target="_blank" download="{{ att.filename }}">
                 <i class="fa fa-file me-1"></i>{{ att.filename }}
               </a>
               <small class="text-muted ms-2">by {{ att.uploaded_by.username }}</small>
@@ -67,7 +67,7 @@
           {% if comment.attachments.all %}
           <div class="mt-2">
             {% for att in comment.attachments.all %}
-            <a href="{{ att.file.url }}" target="_blank" class="btn btn-sm btn-outline-primary me-1 mb-1" download>
+            <a href="{{ att.raw_url }}" target="_blank" class="btn btn-sm btn-outline-primary me-1 mb-1" download="{{ att.filename }}">
               <i class="fa {{ att.file_icon }} me-1"></i>{{ att.filename }}
             </a>
             {% endfor %}
