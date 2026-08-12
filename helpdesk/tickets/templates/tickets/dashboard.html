@@ -107,6 +107,57 @@
   .users-panel.open .chevron-icon {
     transform: rotate(180deg);
   }
+
+  /* ── Calendar ──────────────────────────── */
+  .calendar-grid { width: 100%; }
+  .cal-header {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    text-align: center;
+    font-size: .75rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    padding: 8px 0;
+    border-bottom: 1px solid rgba(0,0,0,0.06);
+  }
+  .cal-body {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 2px;
+  }
+  .cal-day {
+    position: relative;
+    text-align: center;
+    padding: 10px 4px;
+    border-radius: 10px;
+    cursor: default;
+    transition: background 0.15s;
+    min-height: 48px;
+  }
+  .cal-day:hover:not(.empty) { background: var(--primary-ultra-light); }
+  .cal-day.today .cal-day-num {
+    background: var(--primary);
+    color: #fff;
+    border-radius: 50%;
+    width: 28px;
+    height: 28px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+  }
+  .cal-day.has-events .cal-day-num { font-weight: 700; }
+  .cal-day-num { font-size: .85rem; }
+  .cal-dot-count {
+    display: block;
+    font-size: .6rem;
+    font-weight: 700;
+    color: var(--primary);
+    margin-top: 2px;
+  }
+  .cal-day.has-sla .cal-dot-count { color: var(--danger); }
+  .cal-day.empty { pointer-events: none; }
+
 </style>
 {% endblock %}
 
@@ -136,7 +187,11 @@
   <div class="col-6 col-md-4 col-xl-2">
     <div class="stat-card total card">
       <div class="stat-icon" style="background:var(--primary-ultra-light);">
-        <i class="fa fa-ticket-alt" style="color:var(--primary);"></i>
+        <div class="orbit-icon" style="color:var(--primary);">
+          <div class="orbit-ring"></div>
+          <div class="orbit-dot"></div>
+          <i class="fa fa-ticket-alt orbit-center-icon"></i>
+        </div>
       </div>
       <div class="stat-value" style="color:var(--primary);">{{ stats.total }}</div>
       <div class="stat-label">Total</div>
@@ -150,7 +205,11 @@
   <div class="col-6 col-md-4 col-xl-2">
     <div class="stat-card s-open card">
       <div class="stat-icon" style="background:#e8f4ff;">
-        <i class="fa fa-folder-open" style="color:#0984e3;"></i>
+        <div class="orbit-icon" style="color:#0984e3;">
+          <div class="orbit-ring"></div>
+          <div class="orbit-dot"></div>
+          <i class="fa fa-folder-open orbit-center-icon"></i>
+        </div>
       </div>
       <div class="stat-value" style="color:#0984e3;">{{ stats.open }}</div>
       <div class="stat-label">Open</div>
@@ -164,7 +223,11 @@
   <div class="col-6 col-md-4 col-xl-2">
     <div class="stat-card s-progress card">
       <div class="stat-icon" style="background:#fff8e1;">
-        <i class="fa fa-spinner" style="color:#e67e22;"></i>
+        <div class="orbit-icon" style="color:#e67e22;">
+          <div class="orbit-ring"></div>
+          <div class="orbit-dot"></div>
+          <i class="fa fa-hourglass-half orbit-center-icon"></i>
+        </div>
       </div>
       <div class="stat-value" style="color:#e67e22;">{{ stats.in_progress }}</div>
       <div class="stat-label">In Progress</div>
@@ -178,7 +241,11 @@
   <div class="col-6 col-md-4 col-xl-2">
     <div class="stat-card s-resolved card">
       <div class="stat-icon" style="background:#e8f8f0;">
-        <i class="fa fa-check-circle" style="color:var(--success);"></i>
+        <div class="orbit-icon" style="color:#00b894;">
+          <div class="orbit-ring"></div>
+          <div class="orbit-dot"></div>
+          <i class="fa fa-check-circle orbit-center-icon"></i>
+        </div>
       </div>
       <div class="stat-value" style="color:var(--success);">{{ stats.resolved }}</div>
       <div class="stat-label">Resolved</div>
@@ -192,7 +259,11 @@
   <div class="col-6 col-md-4 col-xl-2">
     <div class="stat-card s-closed card">
       <div class="stat-icon" style="background:#f0f0f0;">
-        <i class="fa fa-lock" style="color:#636e72;"></i>
+        <div class="orbit-icon" style="color:#636e72;">
+          <div class="orbit-ring"></div>
+          <div class="orbit-dot"></div>
+          <i class="fa fa-lock orbit-center-icon"></i>
+        </div>
       </div>
       <div class="stat-value" style="color:#636e72;">{{ stats.closed }}</div>
       <div class="stat-label">Closed</div>
@@ -206,7 +277,11 @@
   <div class="col-6 col-md-4 col-xl-2">
     <div class="stat-card s-breach card">
       <div class="stat-icon" style="background:#fff0ef;">
-        <i class="fa fa-exclamation-circle" style="color:var(--danger);"></i>
+        <div class="orbit-icon" style="color:#e17055;">
+          <div class="orbit-ring"></div>
+          <div class="orbit-dot"></div>
+          <i class="fa fa-exclamation-circle orbit-center-icon"></i>
+        </div>
       </div>
       <div class="stat-value" style="color:var(--danger);">{{ sla_breached }}</div>
       <div class="stat-label">SLA Breach</div>
@@ -218,6 +293,74 @@
   </div>
 
 </div>
+
+<!-- ── Analytics Section (Admin/Agent) ────────────────────── -->
+{% if user.role == 'admin' or user.role == 'agent' %}
+<div class="row g-3 mb-4">
+  <!-- Line Chart: Ticket Trends -->
+  <div class="col-lg-8">
+    <div class="card">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="fa fa-chart-line me-2" style="color:var(--primary);"></i>Ticket Analytics</span>
+        <div class="d-flex gap-2 align-items-center">
+          <select id="analyticsYear" class="form-select form-select-sm" style="width:auto;font-size:.8rem;">
+          </select>
+          <select id="analyticsPeriod" class="form-select form-select-sm" style="width:auto;font-size:.8rem;">
+            <option value="monthly">Monthly</option>
+            <option value="daily">Daily</option>
+            <option value="yearly">Yearly</option>
+          </select>
+          <select id="analyticsMonth" class="form-select form-select-sm" style="width:auto;font-size:.8rem;display:none;">
+            <option value="1">Jan</option><option value="2">Feb</option><option value="3">Mar</option>
+            <option value="4">Apr</option><option value="5">May</option><option value="6">Jun</option>
+            <option value="7">Jul</option><option value="8">Aug</option><option value="9">Sep</option>
+            <option value="10">Oct</option><option value="11">Nov</option><option value="12">Dec</option>
+          </select>
+        </div>
+      </div>
+      <div class="card-body">
+        <div style="position:relative;height:260px;">
+          <canvas id="ticketTrendChart"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Donut Chart: Status Breakdown -->
+  <div class="col-lg-4">
+    <div class="card">
+      <div class="card-header">
+        <i class="fa fa-chart-pie me-2" style="color:var(--primary);"></i>Ticket Status
+      </div>
+      <div class="card-body d-flex flex-column align-items-center">
+        <div style="position:relative;height:200px;width:100%;">
+          <canvas id="statusDonutChart"></canvas>
+        </div>
+        <div id="statusLegend" class="mt-3 w-100"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Calendar ───────────────────────────────────────────── -->
+<div class="row g-3 mb-4">
+  <div class="col-12">
+    <div class="card">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="fa fa-calendar-alt me-2" style="color:var(--primary);"></i>Ticket Calendar</span>
+        <div class="d-flex gap-2 align-items-center">
+          <button class="btn btn-sm btn-outline-primary" id="calPrev"><i class="fa fa-chevron-left"></i></button>
+          <span id="calMonthLabel" class="fw-bold" style="min-width:120px;text-align:center;"></span>
+          <button class="btn btn-sm btn-outline-primary" id="calNext"><i class="fa fa-chevron-right"></i></button>
+        </div>
+      </div>
+      <div class="card-body p-2">
+        <div class="calendar-grid" id="calendarGrid"></div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
 
 <!-- ── Recent Tickets + Summary ──────────────────────────── -->
 <div class="row g-3" style="padding-bottom: 60px;">
@@ -406,27 +549,207 @@
 {% endblock %}
 
 {% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script>
-(function() {
+document.addEventListener('DOMContentLoaded', function() {
+  // ── Users Panel Toggle ──────────────────────────────
   const panel  = document.getElementById('usersPanel');
   const handle = document.getElementById('usersPanelHandle');
   const hint   = document.getElementById('panelHint');
-  if (!panel || !handle) return;
-
-  // Start collapsed, save/restore state
-  const KEY = 'hdUsersPanel';
-  const isOpen = sessionStorage.getItem(KEY) === 'open';
-  if (isOpen) {
-    panel.classList.add('open');
-    hint.textContent = 'Click to collapse';
+  if (panel && handle) {
+    const KEY = 'hdUsersPanel';
+    const isOpen = sessionStorage.getItem(KEY) === 'open';
+    if (isOpen) { panel.classList.add('open'); if (hint) hint.textContent = 'Click to collapse'; }
+    handle.addEventListener('click', function() {
+      panel.classList.toggle('open');
+      const open = panel.classList.contains('open');
+      sessionStorage.setItem(KEY, open ? 'open' : 'closed');
+      if (hint) hint.textContent = open ? 'Click to collapse' : 'Click to expand';
+    });
   }
 
-  handle.addEventListener('click', function() {
-    panel.classList.toggle('open');
-    const open = panel.classList.contains('open');
-    sessionStorage.setItem(KEY, open ? 'open' : 'closed');
-    hint.textContent = open ? 'Click to collapse' : 'Click to expand';
+  // ── Analytics Charts ────────────────────────────────
+  const trendCanvas = document.getElementById('ticketTrendChart');
+  const donutCanvas = document.getElementById('statusDonutChart');
+  if (!trendCanvas || typeof Chart === 'undefined') {
+    console.log('Chart.js not loaded or canvas not found');
+    return;
+  }
+
+  let trendChart = null;
+  let donutChart = null;
+
+  const yearSelect = document.getElementById('analyticsYear');
+  const periodSelect = document.getElementById('analyticsPeriod');
+  const monthSelect = document.getElementById('analyticsMonth');
+
+  // Populate year dropdown
+  const currentYear = new Date().getFullYear();
+  for (let y = currentYear; y >= currentYear - 3; y--) {
+    const opt = document.createElement('option');
+    opt.value = y; opt.textContent = y;
+    yearSelect.appendChild(opt);
+  }
+
+  periodSelect.addEventListener('change', function() {
+    monthSelect.style.display = this.value === 'daily' ? '' : 'none';
+    loadAnalytics();
   });
-})();
+  yearSelect.addEventListener('change', loadAnalytics);
+  monthSelect.addEventListener('change', loadAnalytics);
+
+  function loadAnalytics() {
+    const period = periodSelect.value;
+    const year = yearSelect.value;
+    const month = monthSelect.value;
+    let url = '/api/analytics/?period=' + period + '&year=' + year;
+    if (period === 'daily') url += '&month=' + month;
+
+    fetch(url, { credentials: 'same-origin' })
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        renderTrendChart(data);
+        renderDonutChart(data.status);
+        if (data.calendar_events) renderCalendar(data.calendar_events);
+      })
+      .catch(function(err) { console.error('Analytics fetch error:', err); });
+  }
+
+  function renderTrendChart(data) {
+    if (trendChart) trendChart.destroy();
+    trendChart = new Chart(trendCanvas, {
+      type: 'line',
+      data: {
+        labels: data.labels,
+        datasets: [{
+          label: 'Tickets',
+          data: data.data,
+          borderColor: '#6C5CE7',
+          backgroundColor: 'rgba(108, 92, 231, 0.08)',
+          borderWidth: 2.5,
+          fill: true,
+          tension: 0.4,
+          pointBackgroundColor: '#6C5CE7',
+          pointBorderColor: '#fff',
+          pointBorderWidth: 2,
+          pointRadius: 5,
+          pointHoverRadius: 7,
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            backgroundColor: '#1a1a2e',
+            titleColor: '#fff',
+            bodyColor: '#fff',
+            cornerRadius: 8,
+            padding: 10,
+          }
+        },
+        scales: {
+          y: { beginAtZero: true, ticks: { precision: 0 }, grid: { color: 'rgba(0,0,0,0.04)' } },
+          x: { grid: { display: false } }
+        },
+        interaction: { intersect: false, mode: 'index' }
+      }
+    });
+  }
+
+  function renderDonutChart(statusData) {
+    if (!statusData || !statusData.labels) return;
+    if (donutChart) donutChart.destroy();
+    var colors = { 'Open': '#0984e3', 'In Progress': '#e67e22', 'Resolved': '#00b894', 'Closed': '#636e72' };
+    var bgColors = statusData.labels.map(function(l) { return colors[l] || '#6C5CE7'; });
+
+    donutChart = new Chart(donutCanvas, {
+      type: 'doughnut',
+      data: {
+        labels: statusData.labels,
+        datasets: [{
+          data: statusData.data,
+          backgroundColor: bgColors,
+          borderWidth: 0,
+          hoverOffset: 6,
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        cutout: '65%',
+        plugins: { legend: { display: false } }
+      }
+    });
+
+    // Custom legend
+    var legend = document.getElementById('statusLegend');
+    if (legend) {
+      legend.innerHTML = statusData.labels.map(function(label, i) {
+        return '<div class="d-flex align-items-center justify-content-between mb-1">' +
+          '<div class="d-flex align-items-center gap-2">' +
+          '<span style="width:10px;height:10px;border-radius:50%;background:' + bgColors[i] + ';display:inline-block;"></span>' +
+          '<span style="font-size:.82rem;">' + label + '</span></div>' +
+          '<span style="font-weight:700;font-size:.85rem;">' + statusData.data[i] + '</span></div>';
+      }).join('');
+    }
+  }
+
+  // ── Calendar ────────────────────────────────────────
+  var calYear = currentYear;
+  var calMonth = new Date().getMonth();
+  var calendarEvents = [];
+
+  var calGrid = document.getElementById('calendarGrid');
+  var calLabel = document.getElementById('calMonthLabel');
+  var calPrev = document.getElementById('calPrev');
+  var calNext = document.getElementById('calNext');
+
+  if (calGrid && calPrev && calNext) {
+    calPrev.addEventListener('click', function() { calMonth--; if (calMonth < 0) { calMonth = 11; calYear--; } renderCalendarUI(); });
+    calNext.addEventListener('click', function() { calMonth++; if (calMonth > 11) { calMonth = 0; calYear++; } renderCalendarUI(); });
+  }
+
+  function renderCalendar(events) {
+    calendarEvents = events || [];
+    renderCalendarUI();
+  }
+
+  function renderCalendarUI() {
+    if (!calGrid) return;
+    var months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+    calLabel.textContent = months[calMonth] + ' ' + calYear;
+
+    var firstDay = new Date(calYear, calMonth, 1).getDay();
+    var daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
+    var today = new Date();
+
+    var html = '<div class="cal-header"><span>Sun</span><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span></div><div class="cal-body">';
+
+    for (var i = 0; i < firstDay; i++) html += '<div class="cal-day empty"></div>';
+
+    for (var d = 1; d <= daysInMonth; d++) {
+      var mm = String(calMonth + 1).padStart(2, '0');
+      var dd = String(d).padStart(2, '0');
+      var dateStr = calYear + '-' + mm + '-' + dd;
+      var dayEvents = calendarEvents.filter(function(e) { return e.date === dateStr; });
+      var isToday = (today.getFullYear() === calYear && today.getMonth() === calMonth && today.getDate() === d);
+      var hasEvents = dayEvents.length > 0;
+      var hasSLA = dayEvents.some(function(e) { return e.status === 'sla'; });
+
+      html += '<div class="cal-day' + (isToday ? ' today' : '') + (hasEvents ? ' has-events' : '') + (hasSLA ? ' has-sla' : '') + '" title="' + dayEvents.map(function(e){return e.title;}).join(', ') + '">';
+      html += '<span class="cal-day-num">' + d + '</span>';
+      if (hasEvents) html += '<span class="cal-dot-count">' + dayEvents.length + '</span>';
+      html += '</div>';
+    }
+
+    html += '</div>';
+    calGrid.innerHTML = html;
+  }
+
+  // Initial load
+  loadAnalytics();
+});
 </script>
 {% endblock %}

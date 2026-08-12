@@ -1,0 +1,495 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load messaging_tags %}
+
+{% block title %}Messages - HelpDesk{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/messaging.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="messaging-container">
+  <!-- Left Panel: Conversation List -->
+  <div class="msg-sidebar" id="msgSidebar">
+    <div class="msg-sidebar-header">
+      <h5><i class="fa fa-comments"></i> Messages</h5>
+      <div class="msg-sidebar-actions">
+        <button class="btn-icon" id="btnNewChat" title="New Chat">
+          <i class="fa fa-pen-to-square"></i>
+        </button>
+        <button class="btn-icon" id="btnCreateGroup" title="Create Group">
+          <i class="fa fa-users"></i>
+        </button>
+      </div>
+    </div>
+
+    <div class="msg-search">
+      <i class="fa fa-search"></i>
+      <input type="text" id="searchConversations" placeholder="Search messages...">
+    </div>
+
+    <div class="msg-conversation-list" id="conversationList">
+      {% for conv in conversations %}
+      <a href="{% url 'conversation_detail' conv.id %}"
+         class="msg-conv-item {% if active_conversation and active_conversation.id == conv.id %}active{% endif %}"
+         data-id="{{ conv.id }}">
+        <div class="msg-conv-avatar">
+          {% if conv.conversation_type == 'private' %}
+            {% get_other_user conv request.user as other %}
+              {% if other.profile_picture %}
+                <img src="{{ other.profile_picture.url }}" alt="">
+              {% else %}
+                <div class="avatar-initials">{{ other.username|slice:":1"|upper }}</div>
+              {% endif %}
+          {% else %}
+            {% if conv.group_icon %}
+              <img src="{{ conv.group_icon.url }}" alt="">
+            {% else %}
+              <div class="avatar-initials group-avatar"><i class="fa fa-users"></i></div>
+            {% endif %}
+          {% endif %}
+        </div>
+        <div class="msg-conv-info">
+          <div class="msg-conv-top">
+            <span class="msg-conv-name">
+              {% if conv.conversation_type == 'private' %}
+                {% get_other_user conv request.user as other %}
+                  {{ other.username }}
+              {% else %}
+                {{ conv.name }}
+              {% endif %}
+            </span>
+            {% with last=conv.last_message %}
+              {% if last %}
+                <span class="msg-conv-time">{{ last.created_at|timesince }} ago</span>
+              {% endif %}
+            {% endwith %}
+          </div>
+          <div class="msg-conv-bottom">
+            <span class="msg-conv-preview">
+              {% with last=conv.last_message %}
+                {% if last %}
+                  {% if last.message_type == 'image' %}📷 Photo{% elif last.message_type == 'voice' %}🎤 Voice{% elif last.message_type == 'file' %}📎 File{% else %}{{ last.content|truncatechars:35 }}{% endif %}
+                {% else %}
+                  No messages yet
+                {% endif %}
+              {% endwith %}
+            </span>
+            {% if conv.unread_count > 0 %}
+              <span class="msg-unread-badge">{{ conv.unread_count }}</span>
+            {% endif %}
+          </div>
+        </div>
+      </a>
+      {% empty %}
+      <div class="msg-empty-state">
+        <i class="fa fa-comment-dots"></i>
+        <p>No conversations yet</p>
+        <small>Start a new chat!</small>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- Right Panel: Chat Area -->
+  <div class="msg-chat-area" id="msgChatArea">
+    {% if active_conversation %}
+    <!-- Chat Header -->
+    <div class="msg-chat-header">
+      <button class="btn-icon d-md-none" id="btnBackToList">
+        <i class="fa fa-arrow-left"></i>
+      </button>
+      <div class="msg-chat-user-info">
+        <div class="msg-conv-avatar small">
+          {% if active_conversation.conversation_type == 'private' %}
+            {% get_other_user active_conversation request.user as other %}
+              {% if other.profile_picture %}
+                <img src="{{ other.profile_picture.url }}" alt="">
+              {% else %}
+                <div class="avatar-initials">{{ other.username|slice:":1"|upper }}</div>
+              {% endif %}
+          {% else %}
+            {% if active_conversation.group_icon %}
+              <img src="{{ active_conversation.group_icon.url }}" alt="">
+            {% else %}
+              <div class="avatar-initials group-avatar"><i class="fa fa-users"></i></div>
+            {% endif %}
+          {% endif %}
+        </div>
+        <div>
+          <div class="msg-chat-name">
+            {% if active_conversation.conversation_type == 'private' %}
+              {% get_other_user active_conversation request.user as other %}
+                {{ other.username }}
+            {% else %}
+              {{ active_conversation.name }}
+            {% endif %}
+          </div>
+          <div class="msg-chat-status" id="typingIndicator">
+            {% if active_conversation.conversation_type == 'group' %}
+              {{ active_conversation.participants.count }} members
+            {% else %}
+              Online
+            {% endif %}
+          </div>
+        </div>
+      </div>
+      <div class="msg-chat-actions">
+        <button class="btn-icon" id="btnVoiceCall" title="Voice Call">
+          <i class="fa fa-phone"></i>
+        </button>
+        <button class="btn-icon" id="btnVideoCall" title="Video Call">
+          <i class="fa fa-video"></i>
+        </button>
+        {% if active_conversation.conversation_type == 'group' %}
+        <a href="{% url 'edit_group' active_conversation.id %}" class="btn-icon" title="Group Settings">
+          <i class="fa fa-ellipsis-v"></i>
+        </a>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Messages Area -->
+    <div class="msg-messages" id="messagesContainer">
+      {% for msg in messages %}
+      {% if msg.message_type == 'call' %}
+      <!-- Call message (centered) -->
+      <div class="msg-call-event" data-id="{{ msg.id }}">
+        <div class="msg-call-bubble">
+          <div class="msg-call-icon {% if msg.call_log.status == 'rejected' or msg.call_log.status == 'missed' %}declined{% endif %}">
+            {% if msg.call_log.call_type == 'video' %}
+              <i class="fa fa-video"></i>
+            {% else %}
+              <i class="fa fa-phone"></i>
+            {% endif %}
+          </div>
+          <div class="msg-call-info">
+            <span class="msg-call-label">
+              {% if msg.call_log.status == 'ended' %}
+                {% if msg.call_log.call_type == 'video' %}Video call{% else %}Voice call{% endif %}
+              {% elif msg.call_log.status == 'rejected' %}
+                Declined call
+              {% elif msg.call_log.status == 'missed' %}
+                Missed call
+              {% else %}
+                Call ({{ msg.call_log.get_status_display }})
+              {% endif %}
+            </span>
+            <span class="msg-call-time">
+              {% if msg.call_log.status == 'rejected' or msg.call_log.status == 'missed' %}
+                <i class="fa fa-arrow-down" style="color:#e17055;font-size:0.7rem;"></i>
+              {% elif msg.call_log.status == 'ended' %}
+                <i class="fa fa-arrow-up" style="color:#00b894;font-size:0.7rem;"></i>
+              {% endif %}
+              {{ msg.created_at|time:"H:i" }}
+            </span>
+          </div>
+          <button class="msg-call-action" onclick="initiateCall('{{ msg.call_log.call_type }}')">
+            {% if msg.call_log.call_type == 'video' %}
+              <i class="fa fa-video"></i>
+            {% else %}
+              <i class="fa fa-phone"></i>
+            {% endif %}
+          </button>
+        </div>
+      </div>
+      {% elif msg.is_deleted %}
+      <!-- Deleted message -->
+      <div class="msg-bubble {% if msg.sender == request.user %}sent{% else %}received{% endif %} deleted" data-id="{{ msg.id }}">
+        {% if msg.sender != request.user %}
+        <div class="msg-avatar-small">
+          {% if msg.sender.profile_picture %}
+            <img src="{{ msg.sender.profile_picture.url }}" alt="">
+          {% else %}
+            <div class="avatar-initials tiny">{{ msg.sender.username|slice:":1"|upper }}</div>
+          {% endif %}
+        </div>
+        {% endif %}
+        <div class="msg-content">
+          <div class="msg-text deleted-text"><i class="fa fa-ban"></i> This message was deleted</div>
+          <div class="msg-time">{{ msg.created_at|time:"h:i A" }}</div>
+        </div>
+      </div>
+      {% else %}
+      <!-- Normal message -->
+      <div class="msg-bubble {% if msg.sender == request.user %}sent{% else %}received{% endif %}" data-id="{{ msg.id }}" data-sender-id="{{ msg.sender.id }}" data-type="{{ msg.message_type }}">
+        {% if msg.sender != request.user %}
+        <div class="msg-avatar-small">
+          {% if msg.sender.profile_picture %}
+            <img src="{{ msg.sender.profile_picture.url }}" alt="">
+          {% else %}
+            <div class="avatar-initials tiny">{{ msg.sender.username|slice:":1"|upper }}</div>
+          {% endif %}
+        </div>
+        {% endif %}
+        <div class="msg-content">
+          {% if active_conversation.conversation_type == 'group' and msg.sender != request.user %}
+            <div class="msg-sender-name">{{ msg.sender.username }}</div>
+          {% endif %}
+          {% if msg.message_type == 'image' %}
+            <div class="msg-image">
+              <img src="{{ msg.file.url }}" alt="Image" onclick="openImageModal(this.src)">
+            </div>
+          {% elif msg.message_type == 'voice' %}
+            <div class="msg-voice">
+              <audio controls preload="auto">
+                <source src="{{ msg.file.url }}" type="audio/webm">
+                <source src="{{ msg.file.url }}" type="video/webm">
+              </audio>
+            </div>
+          {% elif msg.message_type == 'file' %}
+            <div class="msg-file">
+              <a href="{{ msg.file.url }}" target="_blank">
+                <i class="fa fa-file"></i> {{ msg.file.name|cut:"chat_files/" }}
+              </a>
+            </div>
+          {% endif %}
+          {% if msg.content %}
+            <div class="msg-text">{{ msg.content }}</div>
+          {% endif %}
+          <div class="msg-time">
+            {% if msg.is_edited %}<span class="msg-edited">edited</span>{% endif %}
+            {{ msg.created_at|time:"h:i A" }}
+            {% if msg.sender == request.user %}
+              <i class="fa fa-check-double {% if msg.is_read %}read{% endif %}"></i>
+            {% endif %}
+          </div>
+        </div>
+        {% if msg.sender == request.user %}
+        <div class="msg-actions-trigger" onclick="showMessageMenu(event, {{ msg.id }}, '{{ msg.message_type }}')">
+          <i class="fa fa-ellipsis-v"></i>
+        </div>
+        {% endif %}
+      </div>
+      {% endif %}
+      {% endfor %}
+    </div>
+
+    <!-- Input Area -->
+    <div class="msg-input-area">
+      <div class="msg-input-row">
+        <label class="btn-icon" for="fileInput" title="Attach file">
+          <i class="fa fa-paperclip"></i>
+        </label>
+        <input type="file" id="fileInput" hidden accept="image/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.txt">
+
+        <label class="btn-icon" for="imageInput" title="Send photo">
+          <i class="fa fa-image"></i>
+        </label>
+        <input type="file" id="imageInput" hidden accept="image/*">
+
+        <div class="msg-text-input-wrapper">
+          <textarea id="messageInput" placeholder="Type a message..." rows="1"></textarea>
+        </div>
+
+        <button class="btn-icon" id="btnVoiceRecord" title="Voice message">
+          <i class="fa fa-microphone"></i>
+        </button>
+
+        <button class="btn-icon btn-send" id="btnSend" title="Send">
+          <i class="fa fa-paper-plane"></i>
+        </button>
+      </div>
+      <div class="msg-file-preview" id="filePreview" style="display:none;">
+        <span id="filePreviewName"></span>
+        <button class="btn-icon small" id="btnCancelFile"><i class="fa fa-times"></i></button>
+      </div>
+    </div>
+
+    {% else %}
+    <!-- No conversation selected -->
+    <div class="msg-no-chat">
+      <div class="msg-no-chat-content">
+        <i class="fa fa-comments"></i>
+        <h4>Welcome to Messages</h4>
+        <p>Select a conversation or start a new chat</p>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- New Chat Modal -->
+<div class="modal fade" id="newChatModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content msg-modal">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="fa fa-pen-to-square me-2"></i>New Message</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <input type="text" class="form-control msg-modal-search" id="searchUsers" placeholder="Search users...">
+        <div class="msg-user-list" id="userList">
+          {% for u in users %}
+          <a href="{% url 'start_conversation' u.id %}" class="msg-user-item" data-name="{{ u.username }} {{ u.get_full_name }}">
+            <div class="msg-conv-avatar small">
+              {% if u.profile_picture %}
+                <img src="{{ u.profile_picture.url }}" alt="">
+              {% else %}
+                <div class="avatar-initials">{{ u.username|slice:":1"|upper }}</div>
+              {% endif %}
+            </div>
+            <div class="msg-user-info">
+              <div class="msg-user-name">{{ u.username }}</div>
+              <div class="msg-user-role">{{ u.get_role_display }} {% if u.department %}· {{ u.department }}{% endif %}</div>
+            </div>
+          </a>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Create Group Modal -->
+<div class="modal fade" id="createGroupModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content msg-modal">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="fa fa-users me-2"></i>Create Group</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form method="post" action="{% url 'create_group' %}" enctype="multipart/form-data">
+        {% csrf_token %}
+        <div class="modal-body">
+          <div class="mb-3">
+            <input type="text" name="name" class="form-control" placeholder="Group name" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label text-muted small">Add Members</label>
+            <input type="text" class="form-control msg-modal-search mb-2" id="searchGroupMembers" placeholder="Search users...">
+            <div class="msg-user-list" id="groupUserList">
+              {% for u in users %}
+              <label class="msg-user-item checkbox-item" data-name="{{ u.username }} {{ u.get_full_name }}">
+                <input type="checkbox" name="members" value="{{ u.id }}">
+                <div class="msg-conv-avatar small">
+                  {% if u.profile_picture %}
+                    <img src="{{ u.profile_picture.url }}" alt="">
+                  {% else %}
+                    <div class="avatar-initials">{{ u.username|slice:":1"|upper }}</div>
+                  {% endif %}
+                </div>
+                <div class="msg-user-info">
+                  <div class="msg-user-name">{{ u.username }}</div>
+                  <div class="msg-user-role">{{ u.get_role_display }}</div>
+                </div>
+              </label>
+              {% endfor %}
+            </div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label text-muted small">Group Icon (optional)</label>
+            <input type="file" name="group_icon" class="form-control" accept="image/*">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="submit" class="btn btn-primary">Create Group</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Call Popup Modal -->
+<div class="call-overlay" id="callOverlay" style="display:none;">
+  <div class="call-popup" id="callPopup">
+    <!-- Incoming call -->
+    <div class="call-screen" id="incomingCallScreen" style="display:none;">
+      <div class="call-avatar-large" id="incomingCallerAvatar"></div>
+      <h4 id="incomingCallerName">User</h4>
+      <p id="incomingCallType">Voice Call</p>
+      <div class="call-actions">
+        <button class="call-btn reject" id="btnRejectCall" title="Reject">
+          <i class="fa fa-phone-slash"></i>
+        </button>
+        <button class="call-btn accept" id="btnAcceptCall" title="Accept">
+          <i class="fa fa-phone"></i>
+        </button>
+      </div>
+    </div>
+
+    <!-- Active call -->
+    <div class="call-screen" id="activeCallScreen" style="display:none;">
+      <div class="call-video-container" id="callVideoContainer" style="display:none;">
+        <video id="remoteVideo" autoplay playsinline></video>
+        <video id="localVideo" autoplay playsinline muted></video>
+      </div>
+      <div class="call-avatar-large" id="activeCallAvatar"></div>
+      <h4 id="activeCallName">User</h4>
+      <p id="callTimer">00:00</p>
+      <div class="call-actions">
+        <button class="call-btn toggle" id="btnToggleMic" title="Mute">
+          <i class="fa fa-microphone"></i>
+        </button>
+        <button class="call-btn toggle" id="btnToggleCamera" title="Camera">
+          <i class="fa fa-video"></i>
+        </button>
+        <button class="call-btn reject" id="btnEndCall" title="End Call">
+          <i class="fa fa-phone-slash"></i>
+        </button>
+      </div>
+    </div>
+
+    <!-- Outgoing call (ringing) -->
+    <div class="call-screen" id="outgoingCallScreen" style="display:none;">
+      <div class="call-avatar-large" id="outgoingCallAvatar"></div>
+      <h4 id="outgoingCallName">User</h4>
+      <p class="call-ringing">Calling...</p>
+      <div class="call-actions">
+        <button class="call-btn reject" id="btnCancelCall" title="Cancel">
+          <i class="fa fa-phone-slash"></i>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Image Modal -->
+<div class="modal fade" id="imageModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content bg-transparent border-0">
+      <img id="modalImage" class="img-fluid rounded" style="max-height:85vh;object-fit:contain;">
+    </div>
+  </div>
+</div>
+
+<!-- Message Context Menu -->
+<div class="msg-context-menu" id="msgContextMenu" style="display:none;">
+  <button class="msg-ctx-btn" id="ctxEditBtn" onclick="editMessage()">
+    <i class="fa fa-pen"></i> Edit
+  </button>
+  <button class="msg-ctx-btn danger" id="ctxDeleteBtn" onclick="deleteMessage()">
+    <i class="fa fa-trash"></i> Delete
+  </button>
+</div>
+
+<!-- Edit Message Modal -->
+<div class="modal fade" id="editMessageModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content msg-modal">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="fa fa-pen me-2"></i>Edit Message</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <textarea id="editMessageInput" class="form-control msg-modal-search" rows="3" style="border-radius:12px !important;"></textarea>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-primary" onclick="saveEditMessage()">Save</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Hidden data -->
+<input type="hidden" id="currentUserId" value="{{ request.user.id }}">
+<input type="hidden" id="currentUsername" value="{{ request.user.username }}">
+<input type="hidden" id="conversationId" value="{{ active_conversation.id|default:'' }}">
+<input type="hidden" id="csrfToken" value="{{ csrf_token }}">
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/messaging.js' %}"></script>
+{% endblock %}

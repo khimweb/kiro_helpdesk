@@ -1038,3 +1038,95 @@ a, button, .card, .stat-card, .dropdown-item {
     scroll-behavior: smooth;
   }
 }
+
+/* ── Page Loading Spinner ──────────────────────────── */
+.page-loader {
+  position: fixed;
+  inset: 0;
+  background: var(--bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 99999;
+  transition: opacity 0.4s ease, visibility 0.4s ease;
+}
+
+.page-loader.loaded {
+  opacity: 0;
+  visibility: hidden;
+}
+
+.loader-spinner {
+  width: 56px;
+  height: 56px;
+  position: relative;
+  animation: loaderRotate 1.2s linear infinite;
+}
+
+.spinner-dot {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--primary);
+  top: 50%;
+  left: 50%;
+}
+
+.spinner-dot:nth-child(1)  { transform: translate(-50%,-50%) rotate(0deg)   translateY(-22px); opacity: 1;   width: 12px; height: 12px; }
+.spinner-dot:nth-child(2)  { transform: translate(-50%,-50%) rotate(30deg)  translateY(-22px); opacity: 0.92; width: 11px; height: 11px; }
+.spinner-dot:nth-child(3)  { transform: translate(-50%,-50%) rotate(60deg)  translateY(-22px); opacity: 0.83; width: 10px; height: 10px; }
+.spinner-dot:nth-child(4)  { transform: translate(-50%,-50%) rotate(90deg)  translateY(-22px); opacity: 0.75; }
+.spinner-dot:nth-child(5)  { transform: translate(-50%,-50%) rotate(120deg) translateY(-22px); opacity: 0.67; width: 9px; height: 9px; }
+.spinner-dot:nth-child(6)  { transform: translate(-50%,-50%) rotate(150deg) translateY(-22px); opacity: 0.58; width: 8px; height: 8px; }
+.spinner-dot:nth-child(7)  { transform: translate(-50%,-50%) rotate(180deg) translateY(-22px); opacity: 0.5;  width: 8px; height: 8px; }
+.spinner-dot:nth-child(8)  { transform: translate(-50%,-50%) rotate(210deg) translateY(-22px); opacity: 0.42; width: 7px; height: 7px; }
+.spinner-dot:nth-child(9)  { transform: translate(-50%,-50%) rotate(240deg) translateY(-22px); opacity: 0.33; width: 7px; height: 7px; }
+.spinner-dot:nth-child(10) { transform: translate(-50%,-50%) rotate(270deg) translateY(-22px); opacity: 0.25; width: 6px; height: 6px; }
+.spinner-dot:nth-child(11) { transform: translate(-50%,-50%) rotate(300deg) translateY(-22px); opacity: 0.17; width: 6px; height: 6px; }
+.spinner-dot:nth-child(12) { transform: translate(-50%,-50%) rotate(330deg) translateY(-22px); opacity: 0.08; width: 5px; height: 5px; }
+
+@keyframes loaderRotate {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* ── Stat Card Loader Icon (In Progress) ───────────── */
+.orbit-icon {
+  width: 32px;
+  height: 32px;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.orbit-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 2px solid currentColor;
+  opacity: 0.4;
+}
+
+.orbit-dot {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  background: currentColor;
+  border-radius: 50%;
+  top: 50%;
+  left: 50%;
+  animation: orbitSpin 2.5s linear infinite;
+}
+
+.orbit-center-icon {
+  font-size: 0.85rem;
+  color: currentColor;
+  z-index: 1;
+}
+
+@keyframes orbitSpin {
+  0%   { transform: translate(-50%, -50%) rotate(0deg) translateY(-14px); }
+  100% { transform: translate(-50%, -50%) rotate(360deg) translateY(-14px); }
+}

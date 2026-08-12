@@ -1050,3 +1050,130 @@ def ticket_assignment_status(request, ticket_id):
          'by': a.it_staff_completed_by.username if a.it_staff_completed_by else None},
     ]
     return JsonResponse({'stage': a.current_stage, 'steps': steps})
+
+
+# ── Analytics API ─────────────────────────────────────────────────────────────
+
+@login_required
+def api_analytics(request):
+    """Return ticket analytics data for charts. Admin/agent only."""
+    from django.db.models.functions import TruncMonth, TruncDay, TruncYear, ExtractMonth
+    from collections import defaultdict
+    import calendar
+
+    user = request.user
+    period = request.GET.get('period', 'monthly')  # monthly, daily, yearly
+    year = request.GET.get('year', str(timezone.now().year))
+    month = request.GET.get('month', '')
+
+    # Base queryset
+    if user.is_admin or user.is_agent:
+        tickets_qs = Ticket.objects.all()
+    else:
+        tickets_qs = Ticket.objects.filter(created_by=user)
+
+    # Filter by year
+    try:
+        year_int = int(year)
+        tickets_qs = tickets_qs.filter(created_at__year=year_int)
+    except (ValueError, TypeError):
+        year_int = timezone.now().year
+        tickets_qs = tickets_qs.filter(created_at__year=year_int)
+
+    # Monthly data (default)
+    if period == 'monthly':
+        monthly_data = (
+            tickets_qs
+            .annotate(month=ExtractMonth('created_at'))
+            .values('month')
+            .annotate(count=Count('id'))
+            .order_by('month')
+        )
+        # Fill all 12 months
+        months_map = {item['month']: item['count'] for item in monthly_data}
+        labels = [calendar.month_abbr[i] for i in range(1, 13)]
+        data = [months_map.get(i, 0) for i in range(1, 13)]
+
+    elif period == 'daily':
+        # Daily for a specific month
+        try:
+            month_int = int(month) if month else timezone.now().month
+        except (ValueError, TypeError):
+            month_int = timezone.now().month
+
+        daily_data = (
+            tickets_qs
+            .filter(created_at__month=month_int)
+            .annotate(day=TruncDay('created_at'))
+            .values('day')
+            .annotate(count=Count('id'))
+            .order_by('day')
+        )
+        days_map = {item['day'].day: item['count'] for item in daily_data}
+        import calendar as cal
+        num_days = cal.monthrange(year_int, month_int)[1]
+        labels = [str(d) for d in range(1, num_days + 1)]
+        data = [days_map.get(d, 0) for d in range(1, num_days + 1)]
+
+    elif period == 'yearly':
+        yearly_data = (
+            Ticket.objects.all()
+            .annotate(yr=TruncYear('created_at'))
+            .values('yr')
+            .annotate(count=Count('id'))
+            .order_by('yr')
+        )
+        labels = [str(item['yr'].year) for item in yearly_data]
+        data = [item['count'] for item in yearly_data]
+
+    else:
+        labels = []
+        data = []
+
+    # Status breakdown (donut chart)
+    status_data = (
+        tickets_qs
+        .values('status')
+        .annotate(count=Count('id'))
+        .order_by('status')
+    )
+    status_labels = [item['status'].replace('_', ' ').title() for item in status_data]
+    status_counts = [item['count'] for item in status_data]
+
+    # Priority breakdown
+    priority_data = (
+        tickets_qs
+        .values('priority')
+        .annotate(count=Count('id'))
+        .order_by('priority')
+    )
+    priority_labels = [item['priority'].title() for item in priority_data]
+    priority_counts = [item['count'] for item in priority_data]
+
+    # Calendar events (tickets with dates)
+    calendar_events = []
+    for t in tickets_qs.only('ticket_id', 'title', 'status', 'created_at', 'sla_deadline')[:200]:
+        calendar_events.append({
+            'title': t.title[:40],
+            'ticket_id': t.ticket_id,
+            'date': t.created_at.strftime('%Y-%m-%d'),
+            'status': t.status,
+        })
+        if t.sla_deadline:
+            calendar_events.append({
+                'title': f'SLA: {t.title[:30]}',
+                'ticket_id': t.ticket_id,
+                'date': t.sla_deadline.strftime('%Y-%m-%d'),
+                'status': 'sla',
+            })
+
+    return JsonResponse({
+        'labels': labels,
+        'data': data,
+        'total': sum(data),
+        'period': period,
+        'year': year_int,
+        'status': {'labels': status_labels, 'data': status_counts},
+        'priority': {'labels': priority_labels, 'data': priority_counts},
+        'calendar_events': calendar_events,
+    })

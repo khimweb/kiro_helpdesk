@@ -53,4 +53,5 @@ urlpatterns = [
     path('api/tickets/', views.api_ticket_list, name='api_ticket_list'),
     path('api/tickets/<str:ticket_id>/', views.api_ticket_detail, name='api_ticket_detail'),
     path('api/tickets/<str:ticket_id>/comments/', views.api_ticket_comments, name='api_ticket_comments'),
+    path('api/analytics/', views.api_analytics, name='api_analytics'),
 ]

@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html>
+<head><title>Audio Test</title></head>
+<body style="background:#1a1a2e;color:#fff;padding:40px;font-family:sans-serif;">
+<h2>Microphone & Audio Test</h2>
+
+<h3>Step 1: Test your microphone LIVE</h3>
+<p>Click the button and speak — you should see the level meter move AND hear yourself after recording.</p>
+<button id="btnTestMic" onclick="testMicrophone()" style="padding:12px 24px;font-size:16px;cursor:pointer;background:#6C5CE7;color:#fff;border:none;border-radius:8px;">
+  🎤 Start Mic Test
+</button>
+<div id="micStatus" style="margin-top:10px;color:#a29bfe;"></div>
+<div style="margin-top:10px;background:#333;border-radius:8px;overflow:hidden;height:30px;width:400px;">
+  <div id="levelMeter" style="height:100%;width:0%;background:#00b894;transition:width 0.1s;"></div>
+</div>
+<p style="color:#888;font-size:13px;margin-top:5px;">Green bar should move when you speak</p>
+
+<h3 style="margin-top:30px;">Step 2: Record and play back</h3>
+<button id="btnRecord" onclick="startTestRecord()" style="padding:12px 24px;font-size:16px;cursor:pointer;background:#e17055;color:#fff;border:none;border-radius:8px;">
+  🔴 Record 5 seconds
+</button>
+<div id="recordStatus" style="margin-top:10px;color:#fdcb6e;"></div>
+<div id="playbackArea" style="margin-top:10px;"></div>
+
+<h3 style="margin-top:30px;">Step 3: Check available microphones</h3>
+<button onclick="listDevices()" style="padding:12px 24px;font-size:16px;cursor:pointer;background:#00cec9;color:#fff;border:none;border-radius:8px;">
+  List Audio Devices
+</button>
+<div id="deviceList" style="margin-top:10px;"></div>
+
+<script>
+let testStream = null;
+let analyser = null;
+let animFrame = null;
+
+async function testMicrophone() {
+  try {
+    if (testStream) {
+      testStream.getTracks().forEach(t => t.stop());
+      cancelAnimationFrame(animFrame);
+      document.getElementById('micStatus').textContent = 'Mic stopped.';
+      document.getElementById('btnTestMic').textContent = '🎤 Start Mic Test';
+      testStream = null;
+      return;
+    }
+
+    testStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    document.getElementById('micStatus').textContent = 'Mic active! Speak now...';
+    document.getElementById('btnTestMic').textContent = '⏹ Stop Mic Test';
+
+    const audioCtx = new AudioContext();
+    const source = audioCtx.createMediaStreamSource(testStream);
+    analyser = audioCtx.createAnalyser();
+    analyser.fftSize = 256;
+    source.connect(analyser);
+
+    const dataArray = new Uint8Array(analyser.frequencyBinCount);
+
+    function updateMeter() {
+      analyser.getByteFrequencyData(dataArray);
+      const avg = dataArray.reduce((a, b) => a + b, 0) / dataArray.length;
+      const pct = Math.min(100, (avg / 128) * 100);
+      document.getElementById('levelMeter').style.width = pct + '%';
+      animFrame = requestAnimationFrame(updateMeter);
+    }
+    updateMeter();
+  } catch (err) {
+    document.getElementById('micStatus').textContent = 'ERROR: ' + err.message;
+  }
+}
+
+async function startTestRecord() {
+  const status = document.getElementById('recordStatus');
+  const playback = document.getElementById('playbackArea');
+
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      audio: { echoCancellation: true, noiseSuppression: true }
+    });
+
+    const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+      ? 'audio/webm;codecs=opus' : 'audio/webm';
+
+    const recorder = new MediaRecorder(stream, { mimeType });
+    const chunks = [];
+
+    recorder.ondataavailable = e => {
+      if (e.data.size > 0) chunks.push(e.data);
+    };
+
+    recorder.onstop = () => {
+      stream.getTracks().forEach(t => t.stop());
+      const blob = new Blob(chunks, { type: mimeType });
+      status.textContent = `Recording done! Size: ${blob.size} bytes. Playing back...`;
+
+      const url = URL.createObjectURL(blob);
+      playback.innerHTML = `
+        <audio controls autoplay src="${url}" style="margin-top:10px;"></audio>
+        <p style="color:#00b894;margin-top:5px;">Size: ${blob.size} bytes | Type: ${mimeType}</p>
+        <p style="color:#888;">If you hear nothing here but the file is large (>10KB), your mic is recording silence.</p>
+      `;
+    };
+
+    recorder.start();
+    status.textContent = 'Recording... (5 seconds)';
+
+    setTimeout(() => {
+      recorder.stop();
+    }, 5000);
+
+  } catch (err) {
+    status.textContent = 'ERROR: ' + err.message;
+  }
+}
+
+async function listDevices() {
+  try {
+    // Need to get permission first
+    await navigator.mediaDevices.getUserMedia({ audio: true });
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    const audioInputs = devices.filter(d => d.kind === 'audioinput');
+    const audioOutputs = devices.filter(d => d.kind === 'audiooutput');
+
+    let html = '<h4 style="color:#6C5CE7;">Microphones (Input):</h4><ul>';
+    audioInputs.forEach((d, i) => {
+      html += `<li style="margin:5px 0;">${d.label || 'Microphone ' + (i+1)} (ID: ${d.deviceId.substring(0,8)}...)</li>`;
+    });
+    html += '</ul><h4 style="color:#6C5CE7;margin-top:15px;">Speakers (Output):</h4><ul>';
+    audioOutputs.forEach((d, i) => {
+      html += `<li style="margin:5px 0;">${d.label || 'Speaker ' + (i+1)} (ID: ${d.deviceId.substring(0,8)}...)</li>`;
+    });
+    html += '</ul>';
+    document.getElementById('deviceList').innerHTML = html;
+  } catch (err) {
+    document.getElementById('deviceList').textContent = 'ERROR: ' + err.message;
+  }
+}
+</script>
+</body>
+</html>

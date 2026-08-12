@@ -11,15 +11,32 @@
 
 /* ── Print only ──────────────────────────────────────── */
 @media print {
-  /* hide everything except printArea */
-  body > * { display:none !important; }
+  /* hide screen elements */
+  .navbar, .sidebar, .sidebar-toggle, .sidebar-overlay,
+  .mobile-bottom-nav, .page-loader,
+  .page-header, .filter-card, .stat-mini,
+  .card, .users-panel { display:none !important; }
+
+  /* show print area */
   #printArea { display:block !important; }
+
+  /* Reset main content layout for print */
+  .main-content {
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  body {
+    background: #fff !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
 
   #printArea {
     font-family: 'Segoe UI', Arial, sans-serif;
     font-size: 11px;
     color: #111;
-    padding: 24px 32px;
+    padding: 0;
   }
 
   /* -- Header -- */
@@ -44,16 +61,17 @@
   .ps-box .l { font-size:9px; text-transform:uppercase; color:#888; margin-top:2px; }
 
   /* -- Tables -- */
-  .pt { width:100%; border-collapse:collapse; margin-bottom:18px; }
+  .pt { width:100%; border-collapse:collapse; margin-bottom:18px; page-break-inside:auto; }
   .pt caption { font-size:11px; font-weight:700; text-align:left; margin-bottom:6px; color:#333; caption-side:top; }
   .pt th {
-    background:#6C5CE7; color:#fff;
+    background:#6C5CE7 !important; color:#fff !important;
     padding:6px 9px; font-size:9px;
     text-transform:uppercase; letter-spacing:.04em;
     text-align:left;
   }
   .pt td { padding:5px 9px; border-bottom:1px solid #eee; font-size:10px; }
-  .pt tr:nth-child(even) td { background:#f8f7ff; }
+  .pt tr:nth-child(even) td { background:#f8f7ff !important; }
+  .pt tr { page-break-inside:avoid; }
 
   /* -- Footer -- */
   .pf {
@@ -64,6 +82,12 @@
     margin-top:20px;
     font-size:9px;
     color:#888;
+  }
+
+  /* page settings */
+  @page {
+    margin: 15mm 12mm;
+    size: A4 portrait;
   }
 }
 </style>

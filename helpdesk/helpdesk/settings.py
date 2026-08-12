@@ -35,6 +35,7 @@ DEBUG = os.getenv('DEBUG', 'True') == 'True'
 ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', '*').split(',')
 
 INSTALLED_APPS = [
+    'daphne',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -46,10 +47,21 @@ INSTALLED_APPS = [
     'crispy_forms',
     'crispy_bootstrap5',
     'django_filters',
+    'django_extensions',
+    'channels',
     # Local
     'accounts',
     'tickets',
+    'messaging',
 ]
+
+# Channels
+ASGI_APPLICATION = 'helpdesk.asgi.application'
+CHANNEL_LAYERS = {
+    'default': {
+        'BACKEND': 'channels.layers.InMemoryChannelLayer'
+    }
+}
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
@@ -81,6 +93,14 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'helpdesk.wsgi.application'
+
+# Cache (used for typing indicators & call signaling)
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        'LOCATION': 'helpdesk-cache',
+    }
+}
 
 # Database configuration
 if os.getenv('DB_ENGINE'):

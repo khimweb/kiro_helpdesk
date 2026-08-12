@@ -1,0 +1,49 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Create Group - Messages{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{% static 'css/messaging.css' %}">{% endblock %}
+
+{% block content %}
+<div class="container-fluid" style="max-width:600px;margin-top:20px;">
+  <div class="msg-modal" style="padding:30px;border-radius:20px;">
+    <h4 style="color:var(--msg-text);margin-bottom:20px;"><i class="fa fa-users me-2" style="color:var(--msg-primary);"></i>Create Group</h4>
+    <form method="post" enctype="multipart/form-data">
+      {% csrf_token %}
+      <div class="mb-3">
+        <label class="form-label" style="color:var(--msg-text-secondary);">Group Name</label>
+        <input type="text" name="name" class="form-control msg-modal-search" placeholder="Enter group name" required>
+      </div>
+      <div class="mb-3">
+        <label class="form-label" style="color:var(--msg-text-secondary);">Add Members</label>
+        <div class="msg-user-list" style="max-height:300px;">
+          {% for u in users %}
+          <label class="msg-user-item checkbox-item">
+            <input type="checkbox" name="members" value="{{ u.id }}">
+            <div class="msg-conv-avatar small">
+              {% if u.profile_picture %}
+                <img src="{{ u.profile_picture.url }}" alt="">
+              {% else %}
+                <div class="avatar-initials">{{ u.username|slice:":1"|upper }}</div>
+              {% endif %}
+            </div>
+            <div class="msg-user-info">
+              <div class="msg-user-name">{{ u.username }}</div>
+              <div class="msg-user-role">{{ u.get_role_display }}</div>
+            </div>
+          </label>
+          {% endfor %}
+        </div>
+      </div>
+      <div class="mb-3">
+        <label class="form-label" style="color:var(--msg-text-secondary);">Group Icon (optional)</label>
+        <input type="file" name="group_icon" class="form-control" accept="image/*">
+      </div>
+      <div class="d-flex gap-2">
+        <a href="{% url 'messaging_home' %}" class="btn btn-secondary">Cancel</a>
+        <button type="submit" class="btn btn-primary">Create Group</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
