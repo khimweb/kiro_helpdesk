@@ -1,7 +1,7 @@
 # Use official Python runtime
 FROM python:3.11-slim
 
-# Environment
+# Environment variables
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 ENV PORT=8000
