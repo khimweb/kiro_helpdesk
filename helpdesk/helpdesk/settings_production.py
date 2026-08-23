@@ -26,6 +26,9 @@ if DATABASE_URL:
             'PASSWORD': url.password,
             'HOST': url.hostname,
             'PORT': str(url.port or 5432),
+            'OPTIONS': {
+                'sslmode': 'require',
+            }
         }
     }
 elif os.getenv('DB_ENGINE'):
@@ -37,6 +40,9 @@ elif os.getenv('DB_ENGINE'):
             'PASSWORD': os.getenv('DB_PASSWORD', ''),
             'HOST': os.getenv('DB_HOST', 'localhost'),
             'PORT': os.getenv('DB_PORT', '5432'),
+            'OPTIONS': {
+                'sslmode': 'require',
+            }
         }
     }
 # else: inherits SQLite from base settings (dev fallback)
