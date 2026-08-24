@@ -462,6 +462,7 @@ def reports_view(request):
     search_user   = request.GET.get('search_user', '').strip()
     filter_status = request.GET.get('status', '')
     filter_priority = request.GET.get('priority', '')
+    time_of_day = request.GET.get('time_of_day', '')  # New: morning/afternoon/evening
 
     qs = Ticket.objects.select_related('created_by', 'assigned_to', 'category')
 
@@ -478,6 +479,18 @@ def reports_view(request):
             qs = qs.filter(created_at__lte=date_to.replace(hour=23, minute=59, second=59))
         except ValueError:
             pass
+    
+    # ── Time of Day Filter ───────────────────────────────────
+    if time_of_day == 'morning':
+        # Morning: 6:00 AM - 11:59 AM
+        qs = qs.filter(created_at__hour__gte=6, created_at__hour__lt=12)
+    elif time_of_day == 'afternoon':
+        # Afternoon: 12:00 PM - 5:59 PM
+        qs = qs.filter(created_at__hour__gte=12, created_at__hour__lt=18)
+    elif time_of_day == 'evening':
+        # Evening: 6:00 PM - 5:59 AM
+        qs = qs.filter(Q(created_at__hour__gte=18) | Q(created_at__hour__lt=6))
+    
     if search_user:
         qs = qs.filter(
             Q(created_by__username__icontains=search_user) |
@@ -529,6 +542,8 @@ def reports_view(request):
         writer.writerow([f'Report Generated: {datetime.datetime.now().strftime("%d %B %Y %H:%M")}'])
         if date_from_str or date_to_str:
             writer.writerow([f'Date Range: {date_from_str or "All"} to {date_to_str or "All"}'])
+        if time_of_day:
+            writer.writerow([f'Time of Day: {time_of_day.title()}'])
         writer.writerow([])
         # Column headers
         writer.writerow([
@@ -571,6 +586,7 @@ def reports_view(request):
         'search_user': search_user,
         'filter_status': filter_status,
         'filter_priority': filter_priority,
+        'time_of_day': time_of_day,
         'status_choices': Ticket.STATUS_CHOICES,
         'priority_choices': Ticket.PRIORITY_CHOICES,
         'now': timezone.now(),
