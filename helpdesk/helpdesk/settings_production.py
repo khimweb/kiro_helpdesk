@@ -12,24 +12,18 @@ SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-fallback-change-me')
 ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', '*').split(',')
 
 # ── Database configuration ────────────────────────────────────────────────────
-# Supports both DATABASE_URL (Render default) and individual DB_* variables.
+# Render provides DATABASE_URL with SSL configured
 DATABASE_URL = os.getenv('DATABASE_URL', '')
 
 if DATABASE_URL:
-    import urllib.parse as urlparse
-    url = urlparse.urlparse(DATABASE_URL)
+    # Use dj-database-url to parse DATABASE_URL (handles SSL automatically)
+    import dj_database_url
     DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.postgresql',
-            'NAME': url.path.lstrip('/'),
-            'USER': url.username,
-            'PASSWORD': url.password,
-            'HOST': url.hostname,
-            'PORT': str(url.port or 5432),
-            'OPTIONS': {
-                'sslmode': 'require',
-            }
-        }
+        'default': dj_database_url.config(
+            default=DATABASE_URL,
+            conn_max_age=600,
+            conn_health_checks=True,
+        )
     }
 elif os.getenv('DB_ENGINE'):
     DATABASES = {
@@ -40,9 +34,7 @@ elif os.getenv('DB_ENGINE'):
             'PASSWORD': os.getenv('DB_PASSWORD', ''),
             'HOST': os.getenv('DB_HOST', 'localhost'),
             'PORT': os.getenv('DB_PORT', '5432'),
-            'OPTIONS': {
-                'sslmode': 'require',
-            }
+            'CONN_MAX_AGE': 600,
         }
     }
 # else: inherits SQLite from base settings (dev fallback)
